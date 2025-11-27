@@ -21,16 +21,22 @@ from werkzeug.security import check_password_hash, generate_password_hash
 load_dotenv()
 
 app = Flask(__name__)
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///cell_tracker.db"
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
+    "DATABASE_URL", "sqlite:///cell_tracker.db"
+)
+if app.config["SQLALCHEMY_DATABASE_URI"].startswith("postgres://"):
+    app.config["SQLALCHEMY_DATABASE_URI"] = app.config[
+        "SQLALCHEMY_DATABASE_URI"
+    ].replace("postgres://", "postgresql://", 1)
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["SECRET_KEY"] = os.getenv(
-    "SESSION_SECRET", "fallback-secret-key-change-in-production"
+app.config["SECRET_KEY"] = os.environ.get(
+    "SESSION_SECRET", "dev-secret-key-change-in-production"
 )
 
 db = SQLAlchemy(app)
 
 
-# Database Models (same as before)
+# Database Models
 class Leader(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
@@ -157,7 +163,7 @@ def login():
 
     if request.method == "POST":
         password = request.form.get("password")
-        admin_password = os.getenv("ADMIN_PASSWORD")
+        admin_password = os.environ.get("ADMIN_PASSWORD", "church123")
 
         if password == admin_password:
             session["logged_in"] = True
