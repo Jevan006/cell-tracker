@@ -1,5 +1,6 @@
 import csv
 import io
+import json
 import os
 from datetime import datetime, timedelta
 
@@ -15,6 +16,7 @@ from flask import (
     url_for,
 )
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import inspect
 from werkzeug.security import check_password_hash, generate_password_hash
 
 # Load environment variables
@@ -745,6 +747,139 @@ def seed_database():
     except Exception as e:
         db.session.rollback()
         return f"Error seeding database: {str(e)}"
+
+
+@app.route("/api/backup-data")
+@login_required
+def backup_data():
+    """Create a JSON backup of all data"""
+    try:
+        # Backup leaders
+        leaders = Leader.query.all()
+        leaders_data = [
+            {
+                "id": leader.id,
+                "name": leader.name,
+                "zone": leader.zone,
+                "cell_day": leader.cell_day,
+                "contact_number": leader.contact_number,
+                "email": leader.email,
+                "address": leader.address,
+                "is_active": leader.is_active,
+                "created_at": leader.created_at.isoformat()
+                if leader.created_at
+                else None,
+                "updated_at": leader.updated_at.isoformat()
+                if leader.updated_at
+                else None,
+            }
+            for leader in leaders
+        ]
+
+        # Backup service records
+        service_records = ServiceRecord.query.all()
+        records_data = [
+            {
+                "id": record.id,
+                "leader_id": record.leader_id,
+                "service_type": record.service_type,
+                "service_date": record.service_date.isoformat(),
+                "sunday_attendance": record.sunday_attendance,
+                "sunday_visitors": record.sunday_visitors,
+                "cell_attendance": record.cell_attendance,
+                "cell_visitors": record.cell_visitors,
+                "cell_offering": record.cell_offering,
+                "cell_decisions": record.cell_decisions,
+                "notes": record.notes,
+                "submitted_at": record.submitted_at.isoformat()
+                if record.submitted_at
+                else None,
+            }
+            for record in service_records
+        ]
+
+        backup = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "leaders": leaders_data,
+            "service_records": records_data,
+        }
+
+        return Response(
+            json.dumps(backup, indent=2),
+            mimetype="application/json",
+            headers={"Content-Disposition": "attachment; filename=church_backup.json"},
+        )
+
+    except Exception as e:
+        return jsonify({"success": False, "message": f"Backup failed: {str(e)}"}), 500
+
+
+@app.route("/system-status")
+@login_required
+def system_status():
+    return render_template("system_status.html")
+
+
+@app.route("/api/restore-data", methods=["POST"])
+@login_required
+def restore_data():
+    """Restore data from JSON backup"""
+    try:
+        if "file" not in request.files:
+            return jsonify({"success": False, "message": "No file provided"}), 400
+
+        file = request.files["file"]
+        if file.filename == "":
+            return jsonify({"success": False, "message": "No file selected"}), 400
+
+        if file and file.filename.endswith(".json"):
+            data = json.load(file)
+
+            # Clear existing data
+            db.session.query(ServiceRecord).delete()
+            db.session.query(Leader).delete()
+
+            # Restore leaders
+            for leader_data in data.get("leaders", []):
+                leader = Leader(
+                    id=leader_data["id"],
+                    name=leader_data["name"],
+                    zone=leader_data["zone"],
+                    cell_day=leader_data.get("cell_day", "Thursday"),
+                    contact_number=leader_data.get("contact_number", ""),
+                    email=leader_data.get("email", ""),
+                    address=leader_data.get("address", ""),
+                    is_active=leader_data.get("is_active", True),
+                )
+                db.session.add(leader)
+
+            # Restore service records
+            for record_data in data.get("service_records", []):
+                record = ServiceRecord(
+                    id=record_data["id"],
+                    leader_id=record_data["leader_id"],
+                    service_type=record_data["service_type"],
+                    service_date=datetime.strptime(
+                        record_data["service_date"], "%Y-%m-%d"
+                    ).date(),
+                    sunday_attendance=record_data.get("sunday_attendance", 0),
+                    sunday_visitors=record_data.get("sunday_visitors", 0),
+                    cell_attendance=record_data.get("cell_attendance", 0),
+                    cell_visitors=record_data.get("cell_visitors", 0),
+                    cell_offering=record_data.get("cell_offering", 0.0),
+                    cell_decisions=record_data.get("cell_decisions", 0),
+                    notes=record_data.get("notes", ""),
+                )
+                db.session.add(record)
+
+            db.session.commit()
+            return jsonify({"success": True, "message": "Data restored successfully!"})
+
+        return jsonify({"success": False, "message": "Invalid file format"}), 400
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "message": f"Restore failed: {str(e)}"}), 500
 
 
 if __name__ == "__main__":

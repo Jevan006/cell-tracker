@@ -1,0 +1,126 @@
+{% extends "base.html" %} {% block content %}
+<div class="max-w-4xl mx-auto">
+  <!-- Header -->
+  <div class="text-center mb-8">
+    <h1 class="text-3xl font-bold text-gray-800 mb-2">System Status</h1>
+    <p class="text-gray-600">Monitor application health and usage statistics</p>
+  </div>
+
+  <!-- Stats Grid -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="bg-white rounded-lg shadow-md p-6 text-center">
+      <div class="text-2xl font-bold text-blue-600" id="totalLeaders">0</div>
+      <div class="text-gray-600">Total Leaders</div>
+    </div>
+    <div class="bg-white rounded-lg shadow-md p-6 text-center">
+      <div class="text-2xl font-bold text-green-600" id="totalSubmissions">
+        0
+      </div>
+      <div class="text-gray-600">Total Submissions</div>
+    </div>
+    <div class="bg-white rounded-lg shadow-md p-6 text-center">
+      <div class="text-2xl font-bold text-purple-600" id="dbSize">0 MB</div>
+      <div class="text-gray-600">Database Size</div>
+    </div>
+  </div>
+
+  <!-- System Information -->
+  <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+    <h3 class="text-xl font-semibold text-gray-800 mb-4">System Information</h3>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700"
+          >Application Version</label
+        >
+        <p class="mt-1 text-sm text-gray-900">Church Cell Tracker v1.0</p>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700"
+          >Last Backup</label
+        >
+        <p class="mt-1 text-sm text-gray-900" id="lastBackup">Never</p>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700"
+          >Server Status</label
+        >
+        <p class="mt-1 text-sm text-green-600 flex items-center">
+          <i class="fas fa-circle mr-2 text-green-500"></i>
+          Operational
+        </p>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Database</label>
+        <p class="mt-1 text-sm text-gray-900" id="dbType">SQLite/PostgreSQL</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="bg-white rounded-lg shadow-md p-6">
+    <h3 class="text-xl font-semibold text-gray-800 mb-4">Quick Actions</h3>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <a
+        href="/api/backup-data"
+        class="flex items-center p-4 border border-yellow-200 rounded-lg hover:bg-yellow-50 transition-colors"
+      >
+        <div
+          class="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center mr-4"
+        >
+          <i class="fas fa-download text-yellow-600"></i>
+        </div>
+        <div>
+          <div class="font-medium text-gray-800">Download Backup</div>
+          <div class="text-sm text-gray-600">Export all data as JSON</div>
+        </div>
+      </a>
+
+      <a
+        href="/seed-database"
+        class="flex items-center p-4 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
+      >
+        <div
+          class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-4"
+        >
+          <i class="fas fa-database text-blue-600"></i>
+        </div>
+        <div>
+          <div class="font-medium text-gray-800">Reset Sample Data</div>
+          <div class="text-sm text-gray-600">Reload 70 sample leaders</div>
+        </div>
+      </a>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    loadSystemStats();
+  });
+
+  async function loadSystemStats() {
+    try {
+      // Load basic stats
+      const statsResponse = await fetch("/api/stats/overview");
+      const stats = await statsResponse.json();
+
+      document.getElementById("totalLeaders").textContent = stats.total_leaders;
+      document.getElementById("totalSubmissions").textContent =
+        stats.total_submissions;
+
+      // Estimate database size (this is a simple approximation)
+      const dbSize =
+        (stats.total_leaders * 0.5 + stats.total_submissions * 0.2) / 1024;
+      document.getElementById("dbSize").textContent = dbSize.toFixed(2) + " MB";
+
+      // Set database type based on environment
+      const dbType = window.location.hostname.includes("render.com")
+        ? "PostgreSQL"
+        : "SQLite";
+      document.getElementById("dbType").textContent = dbType;
+    } catch (error) {
+      console.error("Error loading system stats:", error);
+    }
+  }
+</script>
+{% endblock %}
