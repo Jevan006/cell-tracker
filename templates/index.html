@@ -1,0 +1,277 @@
+{% extends "base.html" %} {% block content %}
+<!-- Welcome Header -->
+<div class="text-center mb-12">
+  <h1 class="text-4xl font-bold text-gray-800 mb-2">Welcome to Church Name</h1>
+  <h2 class="text-2xl font-semibold text-gray-600 mb-4">Cell Tracker</h2>
+
+  <div class="text-gray-500 mb-6">
+    <p class="text-lg">
+      {{ datetime.now().strftime('%A, %B %d, %Y') }} · Next service at 7:00 PM
+    </p>
+  </div>
+
+  <div class="w-24 h-1 bg-blue-500 mx-auto mb-8"></div>
+</div>
+
+<!-- Quick Stats -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+  <div class="bg-white rounded-lg shadow-md p-6 text-center">
+    <div class="text-2xl font-bold text-blue-600" id="totalLeaders">70</div>
+    <div class="text-gray-600">Active Leaders</div>
+  </div>
+  <div class="bg-white rounded-lg shadow-md p-6 text-center">
+    <div class="text-2xl font-bold text-green-600" id="weeklyAttendance">0</div>
+    <div class="text-gray-600">This Week's Attendance</div>
+  </div>
+  <div class="bg-white rounded-lg shadow-md p-6 text-center">
+    <div class="text-2xl font-bold text-purple-600" id="totalOffering">
+      R0.00
+    </div>
+    <div class="text-gray-600">Total Offering</div>
+  </div>
+</div>
+
+<!-- Navigation Cards -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+  <!-- View Dashboard Card -->
+  <a
+    href="{{ url_for('dashboard') }}"
+    class="block bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-blue-500 transform hover:-translate-y-1 transition-transform"
+  >
+    <div class="flex items-center mb-4">
+      <div
+        class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mr-4"
+      >
+        <i class="fas fa-chart-bar text-blue-500 text-xl"></i>
+      </div>
+      <div>
+        <h3 class="text-xl font-semibold text-gray-800">Analytics Dashboard</h3>
+        <p class="text-gray-600 text-sm">
+          View comprehensive reports and charts
+        </p>
+      </div>
+    </div>
+    <div class="text-blue-600 text-sm font-medium flex items-center">
+      View analytics <i class="fas fa-arrow-right ml-2"></i>
+    </div>
+  </a>
+
+  <!-- Enter Cell Totals Card -->
+  <a
+    href="{{ url_for('enter_totals') }}"
+    class="block bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-green-500 transform hover:-translate-y-1 transition-transform"
+  >
+    <div class="flex items-center mb-4">
+      <div
+        class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mr-4"
+      >
+        <i class="fas fa-edit text-green-500 text-xl"></i>
+      </div>
+      <div>
+        <h3 class="text-xl font-semibold text-gray-800">Enter Cell Totals</h3>
+        <p class="text-gray-600 text-sm">Submit attendance and offering data</p>
+      </div>
+    </div>
+    <div class="text-green-600 text-sm font-medium flex items-center">
+      Submit data <i class="fas fa-arrow-right ml-2"></i>
+    </div>
+  </a>
+
+  <!-- Leaders Overview Card -->
+  <a
+    href="{{ url_for('leaders_management') }}"
+    class="block bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-purple-500 transform hover:-translate-y-1 transition-transform"
+  >
+    <div class="flex items-center mb-4">
+      <div
+        class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mr-4"
+      >
+        <i class="fas fa-users text-purple-500 text-xl"></i>
+      </div>
+      <div>
+        <h3 class="text-xl font-semibold text-gray-800">Leaders Management</h3>
+        <p class="text-gray-600 text-sm">
+          Manage leaders and contact information
+        </p>
+      </div>
+    </div>
+    <div class="text-purple-600 text-sm font-medium flex items-center">
+      Manage leaders <i class="fas fa-arrow-right ml-2"></i>
+    </div>
+  </a>
+</div>
+
+<!-- Recent Activity Section -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+  <!-- Recent Submissions -->
+  <div class="bg-white rounded-lg shadow-md p-6">
+    <h3 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+      <i class="fas fa-clock mr-2 text-blue-500"></i>
+      Recent Submissions
+    </h3>
+    <div id="recentSubmissions" class="space-y-3">
+      <div class="text-center py-8 text-gray-500">
+        <i class="fas fa-inbox text-3xl mb-3"></i>
+        <p>Loading recent activity...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="bg-white rounded-lg shadow-md p-6">
+    <h3 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+      <i class="fas fa-bolt mr-2 text-green-500"></i>
+      Quick Actions
+    </h3>
+    <div class="space-y-3">
+      <a
+        href="{{ url_for('enter_totals') }}"
+        class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-200 transition-colors group"
+      >
+        <div
+          class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3 group-hover:bg-blue-200 transition-colors"
+        >
+          <i class="fas fa-plus text-blue-600 text-sm"></i>
+        </div>
+        <div>
+          <div class="font-medium text-gray-800">Submit New Totals</div>
+          <div class="text-sm text-gray-600">
+            Enter today's cell or service data
+          </div>
+        </div>
+      </a>
+
+      <a
+        href="{{ url_for('leaders_management') }}"
+        class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-green-50 hover:border-green-200 transition-colors group"
+      >
+        <div
+          class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center mr-3 group-hover:bg-green-200 transition-colors"
+        >
+          <i class="fas fa-user-plus text-green-600 text-sm"></i>
+        </div>
+        <div>
+          <div class="font-medium text-gray-800">Add New Leader</div>
+          <div class="text-sm text-gray-600">
+            Register a new cell group leader
+          </div>
+        </div>
+      </a>
+
+      <a
+        href="{{ url_for('dashboard') }}"
+        class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-purple-50 hover:border-purple-200 transition-colors group"
+      >
+        <div
+          class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center mr-3 group-hover:bg-purple-200 transition-colors"
+        >
+          <i class="fas fa-chart-line text-purple-600 text-sm"></i>
+        </div>
+        <div>
+          <div class="font-medium text-gray-800">View Reports</div>
+          <div class="text-sm text-gray-600">
+            Analyze growth and performance
+          </div>
+        </div>
+      </a>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Load quick stats and recent submissions
+  document.addEventListener("DOMContentLoaded", function () {
+    loadQuickStats();
+    loadRecentSubmissions();
+  });
+
+  async function loadQuickStats() {
+    try {
+      const response = await fetch("/api/stats/overview");
+      const stats = await response.json();
+
+      document.getElementById("totalLeaders").textContent = stats.total_leaders;
+      document.getElementById("weeklyAttendance").textContent =
+        stats.recent_submissions;
+      document.getElementById("totalOffering").textContent =
+        "R" + stats.total_offering.toFixed(2);
+    } catch (error) {
+      console.error("Error loading quick stats:", error);
+    }
+  }
+
+  async function loadRecentSubmissions() {
+    try {
+      const response = await fetch("/api/recent-submissions");
+      const submissions = await response.json();
+
+      const container = document.getElementById("recentSubmissions");
+
+      if (submissions.length === 0) {
+        container.innerHTML = `
+                <div class="text-center py-8 text-gray-500">
+                    <i class="fas fa-inbox text-3xl mb-3"></i>
+                    <p>No submissions yet</p>
+                </div>
+            `;
+        return;
+      }
+
+      container.innerHTML = submissions
+        .slice(0, 5)
+        .map(
+          (submission) => `
+            <div class="flex items-center justify-between p-3 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors">
+                <div class="flex items-center space-x-3">
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center ${
+                      submission.service_type === "sunday"
+                        ? "bg-blue-100 text-blue-600"
+                        : "bg-green-100 text-green-600"
+                    }">
+                        <i class="fas ${
+                          submission.service_type === "sunday"
+                            ? "fa-church"
+                            : "fa-home"
+                        } text-sm"></i>
+                    </div>
+                    <div>
+                        <div class="font-medium text-gray-800">${
+                          submission.leader_name
+                        }</div>
+                        <div class="text-sm text-gray-500">
+                            ${submission.attendance} attendees · ${new Date(
+            submission.service_date
+          ).toLocaleDateString()}
+                        </div>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="text-sm font-medium ${
+                      submission.service_type === "sunday"
+                        ? "text-blue-600"
+                        : "text-green-600"
+                    }">
+                        ${
+                          submission.service_type === "sunday"
+                            ? "Sunday"
+                            : "Cell"
+                        }
+                    </div>
+                    <div class="text-xs text-gray-500">
+                        ${
+                          submission.offering
+                            ? "R" + submission.offering.toFixed(2)
+                            : ""
+                        }
+                    </div>
+                </div>
+            </div>
+        `
+        )
+        .join("");
+    } catch (error) {
+      console.error("Error loading recent submissions:", error);
+    }
+  }
+</script>
+{% endblock %}

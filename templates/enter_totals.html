@@ -1,0 +1,826 @@
+{% extends "base.html" %} {% block content %}
+
+<!-- Page Header -->
+<div class="text-center mb-8">
+  <h1 class="text-3xl font-bold text-gray-800 mb-2">Enter Cell Totals</h1>
+  <p class="text-gray-600">
+    Submit attendance and offering data for your cell group (South African
+    Rands)
+  </p>
+</div>
+
+<!-- Stats Overview -->
+<div id="statsOverview" class="max-w-2xl mx-auto mb-6 grid grid-cols-3 gap-4">
+  <!-- Stats will be loaded by JavaScript -->
+</div>
+
+<!-- Main Form Card -->
+<div class="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-6 mb-8">
+  <form id="totalsForm" class="space-y-6">
+    <!-- Leader Selection -->
+    <div>
+      <label
+        for="leaderSearch"
+        class="block text-sm font-medium text-gray-700 mb-2"
+      >
+        Select Leader *
+      </label>
+      <div class="relative">
+        <input
+          type="text"
+          id="leaderSearch"
+          placeholder="Search leaders by name or zone..."
+          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        />
+        <div class="absolute right-3 top-2">
+          <i class="fas fa-search text-gray-400"></i>
+        </div>
+      </div>
+      <!-- Search Results Dropdown -->
+      <div
+        id="searchResults"
+        class="hidden mt-2 border border-gray-200 rounded-lg shadow-lg bg-white max-h-60 overflow-y-auto"
+      >
+        <!-- Results will be populated by JavaScript -->
+      </div>
+      <!-- Selected Leader Display -->
+      <div
+        id="selectedLeader"
+        class="hidden mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg"
+      >
+        <div class="flex justify-between items-center">
+          <div>
+            <span
+              id="selectedLeaderName"
+              class="font-medium text-blue-800"
+            ></span>
+            <span
+              id="selectedLeaderZone"
+              class="text-sm text-blue-600 ml-2"
+            ></span>
+          </div>
+          <button
+            type="button"
+            onclick="clearSelection()"
+            class="text-blue-600 hover:text-blue-800"
+          >
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <input type="hidden" id="selectedLeaderId" name="leader_id" />
+      </div>
+    </div>
+
+    <!-- Service Type Selection -->
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-2">
+        Service Type *
+      </label>
+      <div class="grid grid-cols-2 gap-4">
+        <label class="relative flex cursor-pointer">
+          <input
+            type="radio"
+            name="service_type"
+            value="sunday"
+            class="sr-only"
+            checked
+          />
+          <div
+            class="service-type-card p-4 border-2 border-gray-200 rounded-lg w-full text-center hover:border-blue-500 transition-colors"
+          >
+            <i class="fas fa-church text-2xl text-blue-500 mb-2"></i>
+            <div class="font-medium text-gray-800">Sunday Service</div>
+          </div>
+        </label>
+        <label class="relative flex cursor-pointer">
+          <input
+            type="radio"
+            name="service_type"
+            value="cell"
+            class="sr-only"
+          />
+          <div
+            class="service-type-card p-4 border-2 border-gray-200 rounded-lg w-full text-center hover:border-green-500 transition-colors"
+          >
+            <i class="fas fa-home text-2xl text-green-500 mb-2"></i>
+            <div class="font-medium text-gray-800">Cell Meeting</div>
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <!-- Date Selection -->
+    <div>
+      <label
+        for="serviceDate"
+        class="block text-sm font-medium text-gray-700 mb-2"
+      >
+        Service Date *
+      </label>
+      <input
+        type="date"
+        id="serviceDate"
+        name="service_date"
+        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        required
+      />
+    </div>
+
+    <!-- Sunday Service Fields -->
+    <div
+      id="sundayFields"
+      class="space-y-4 border-l-4 border-blue-500 pl-4 bg-blue-50 p-4 rounded"
+    >
+      <h3 class="font-medium text-blue-800 mb-2">Sunday Service Totals</h3>
+
+      <!-- Total Attendance -->
+      <div>
+        <label
+          for="sundayAttendance"
+          class="block text-sm font-medium text-gray-700 mb-2"
+        >
+          Total Attendance *
+        </label>
+        <input
+          type="number"
+          id="sundayAttendance"
+          name="sunday_attendance"
+          min="1"
+          max="500"
+          placeholder="Enter total number of attendees"
+          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        />
+      </div>
+
+      <!-- Total Visitors -->
+      <div>
+        <label
+          for="sundayVisitors"
+          class="block text-sm font-medium text-gray-700 mb-2"
+        >
+          Total Visitors
+        </label>
+        <input
+          type="number"
+          id="sundayVisitors"
+          name="sunday_visitors"
+          min="0"
+          max="500"
+          placeholder="Enter number of visitors"
+          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        />
+      </div>
+    </div>
+
+    <!-- Cell Meeting Fields -->
+    <div
+      id="cellFields"
+      class="space-y-4 border-l-4 border-green-500 pl-4 bg-green-50 p-4 rounded hidden"
+    >
+      <h3 class="font-medium text-green-800 mb-2">Cell Meeting Totals</h3>
+
+      <!-- Total Attendance -->
+      <div>
+        <label
+          for="cellAttendance"
+          class="block text-sm font-medium text-gray-700 mb-2"
+        >
+          Total Attendance *
+        </label>
+        <input
+          type="number"
+          id="cellAttendance"
+          name="cell_attendance"
+          min="1"
+          max="100"
+          placeholder="Enter total number of attendees"
+          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+        />
+      </div>
+
+      <!-- Total Visitors -->
+      <div>
+        <label
+          for="cellVisitors"
+          class="block text-sm font-medium text-gray-700 mb-2"
+        >
+          Total Visitors
+        </label>
+        <input
+          type="number"
+          id="cellVisitors"
+          name="cell_visitors"
+          min="0"
+          max="100"
+          placeholder="Enter number of visitors"
+          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+        />
+      </div>
+
+      <!-- Total Offering -->
+      <div>
+        <label
+          for="cellOffering"
+          class="block text-sm font-medium text-gray-700 mb-2"
+        >
+          Total Offering (ZAR)
+        </label>
+        <div class="relative">
+          <div
+            class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
+          >
+            <span class="text-gray-500">R</span>
+          </div>
+          <input
+            type="number"
+            id="cellOffering"
+            name="cell_offering"
+            min="0"
+            step="0.01"
+            placeholder="0.00"
+            class="w-full pl-8 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+          />
+        </div>
+      </div>
+
+      <!-- Total Decisions -->
+      <div>
+        <label
+          for="cellDecisions"
+          class="block text-sm font-medium text-gray-700 mb-2"
+        >
+          Total Decisions
+        </label>
+        <input
+          type="number"
+          id="cellDecisions"
+          name="cell_decisions"
+          min="0"
+          max="50"
+          placeholder="Enter number of salvation decisions"
+          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+        />
+      </div>
+    </div>
+
+    <!-- Notes -->
+    <div>
+      <label for="notes" class="block text-sm font-medium text-gray-700 mb-2">
+        Additional Notes
+      </label>
+      <textarea
+        id="notes"
+        name="notes"
+        rows="3"
+        placeholder="Any additional comments about the service..."
+        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+      ></textarea>
+    </div>
+
+    <!-- Form Actions -->
+    <div class="flex space-x-4 pt-4">
+      <button
+        type="button"
+        onclick="window.location.href='/'"
+        class="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+      >
+        Cancel
+      </button>
+      <button
+        type="submit"
+        id="submitButton"
+        class="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
+      >
+        <span id="submitText">Submit Totals</span>
+        <div id="submitSpinner" class="hidden ml-2">
+          <i class="fas fa-spinner fa-spin"></i>
+        </div>
+      </button>
+    </div>
+  </form>
+</div>
+
+<!-- Recent Submissions Section -->
+<div class="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-6">
+  <div class="flex justify-between items-center mb-6">
+    <h2 class="text-xl font-semibold text-gray-800">Recent Submissions</h2>
+    <div class="flex space-x-3">
+      <!-- Date Filter -->
+      <div class="flex space-x-2 items-center">
+        <input
+          type="date"
+          id="startDate"
+          class="px-3 py-1 border border-gray-300 rounded text-sm"
+        />
+        <span class="text-gray-500">to</span>
+        <input
+          type="date"
+          id="endDate"
+          class="px-3 py-1 border border-gray-300 rounded text-sm"
+        />
+      </div>
+      <!-- Export Button -->
+      <button
+        id="exportButton"
+        class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center text-sm"
+      >
+        <i class="fas fa-download mr-2"></i>
+        Export CSV
+      </button>
+      <!-- Refresh Button -->
+      <button
+        onclick="loadRecentSubmissions()"
+        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center text-sm"
+      >
+        <i class="fas fa-refresh mr-2"></i>
+        Refresh
+      </button>
+    </div>
+  </div>
+
+  <!-- Submissions Table -->
+  <div id="submissionsTable" class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          <th
+            class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+          >
+            Leader
+          </th>
+          <th
+            class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+          >
+            Service
+          </th>
+          <th
+            class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+          >
+            Date
+          </th>
+          <th
+            class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+          >
+            Attendance
+          </th>
+          <th
+            class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+          >
+            Visitors
+          </th>
+          <th
+            class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+          >
+            Offering
+          </th>
+          <th
+            class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+          >
+            Decisions
+          </th>
+          <th
+            class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+          >
+            Submitted
+          </th>
+        </tr>
+      </thead>
+      <tbody id="submissionsBody" class="bg-white divide-y divide-gray-200">
+        <!-- Data will be loaded by JavaScript -->
+      </tbody>
+    </table>
+    <div id="noSubmissions" class="hidden text-center py-8 text-gray-500">
+      <i class="fas fa-inbox text-4xl mb-4"></i>
+      <p>No submissions yet. Submit your first cell totals above!</p>
+    </div>
+  </div>
+</div>
+
+<!-- Success Message -->
+<div
+  id="successMessage"
+  class="hidden fixed top-4 right-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg shadow-lg"
+>
+  <div class="flex items-center">
+    <i class="fas fa-check-circle mr-2"></i>
+    <span>Totals submitted successfully!</span>
+  </div>
+</div>
+
+<!-- Error Message -->
+<div
+  id="errorMessage"
+  class="hidden fixed top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg shadow-lg"
+>
+  <div class="flex items-center">
+    <i class="fas fa-exclamation-circle mr-2"></i>
+    <span id="errorText">Error submitting totals</span>
+  </div>
+</div>
+
+<script>
+  // DOM Elements
+  const leaderSearch = document.getElementById("leaderSearch");
+  const searchResults = document.getElementById("searchResults");
+  const selectedLeader = document.getElementById("selectedLeader");
+  const selectedLeaderName = document.getElementById("selectedLeaderName");
+  const selectedLeaderZone = document.getElementById("selectedLeaderZone");
+  const selectedLeaderId = document.getElementById("selectedLeaderId");
+  const totalsForm = document.getElementById("totalsForm");
+  const successMessage = document.getElementById("successMessage");
+  const errorMessage = document.getElementById("errorMessage");
+  const errorText = document.getElementById("errorText");
+  const serviceTypeRadios = document.querySelectorAll(
+    'input[name="service_type"]'
+  );
+  const sundayFields = document.getElementById("sundayFields");
+  const cellFields = document.getElementById("cellFields");
+  const submitButton = document.getElementById("submitButton");
+  const submitText = document.getElementById("submitText");
+  const submitSpinner = document.getElementById("submitSpinner");
+  const submissionsBody = document.getElementById("submissionsBody");
+  const noSubmissions = document.getElementById("noSubmissions");
+  const exportButton = document.getElementById("exportButton");
+  const startDate = document.getElementById("startDate");
+  const endDate = document.getElementById("endDate");
+  const statsOverview = document.getElementById("statsOverview");
+
+  // Initialize page
+  document.addEventListener("DOMContentLoaded", function () {
+    loadStatsOverview();
+    loadRecentSubmissions();
+    setDefaultDates();
+  });
+
+  // Load stats overview
+  async function loadStatsOverview() {
+    try {
+      const response = await fetch("/api/stats/overview");
+      const stats = await response.json();
+
+      statsOverview.innerHTML = `
+            <div class="bg-blue-50 p-4 rounded-lg text-center">
+                <div class="text-2xl font-bold text-blue-600">${
+                  stats.total_leaders
+                }</div>
+                <div class="text-sm text-blue-800">Active Leaders</div>
+            </div>
+            <div class="bg-green-50 p-4 rounded-lg text-center">
+                <div class="text-2xl font-bold text-green-600">${
+                  stats.total_submissions
+                }</div>
+                <div class="text-sm text-green-800">Total Submissions</div>
+            </div>
+            <div class="bg-purple-50 p-4 rounded-lg text-center">
+                <div class="text-2xl font-bold text-purple-600">R${stats.total_offering.toFixed(
+                  2
+                )}</div>
+                <div class="text-sm text-purple-800">Total Offering</div>
+            </div>
+        `;
+    } catch (error) {
+      console.error("Error loading stats:", error);
+    }
+  }
+
+  // Load recent submissions
+  async function loadRecentSubmissions() {
+    try {
+      const response = await fetch("/api/recent-submissions");
+      const submissions = await response.json();
+
+      if (submissions.length === 0) {
+        submissionsBody.innerHTML = "";
+        noSubmissions.classList.remove("hidden");
+        return;
+      }
+
+      noSubmissions.classList.add("hidden");
+
+      submissionsBody.innerHTML = submissions
+        .map(
+          (submission) => `
+            <tr class="hover:bg-gray-50">
+                <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="font-medium text-gray-900">${
+                      submission.leader_name
+                    }</div>
+                    <div class="text-sm text-gray-500">${
+                      submission.leader_zone
+                    }</div>
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      submission.service_type === "sunday"
+                        ? "bg-blue-100 text-blue-800"
+                        : "bg-green-100 text-green-800"
+                    }">
+                        ${
+                          submission.service_type === "sunday"
+                            ? "Sunday"
+                            : "Cell"
+                        }
+                    </span>
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                    ${new Date(submission.service_date).toLocaleDateString()}
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                    ${submission.attendance}
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                    ${submission.visitors || "-"}
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                    ${
+                      submission.offering
+                        ? "R" + submission.offering.toFixed(2)
+                        : "-"
+                    }
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                    ${submission.decisions || "-"}
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                    ${new Date(submission.submitted_at).toLocaleString()}
+                </td>
+            </tr>
+        `
+        )
+        .join("");
+    } catch (error) {
+      console.error("Error loading submissions:", error);
+    }
+  }
+
+  // Set default dates for filter
+  function setDefaultDates() {
+    const today = new Date();
+    const oneWeekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    startDate.valueAsDate = oneWeekAgo;
+    endDate.valueAsDate = today;
+  }
+
+  // Export CSV
+  exportButton.addEventListener("click", function () {
+    const start = startDate.value;
+    const end = endDate.value;
+
+    let url = "/api/export-csv";
+    const params = [];
+
+    if (start) params.push(`start_date=${start}`);
+    if (end) params.push(`end_date=${end}`);
+
+    if (params.length > 0) {
+      url += "?" + params.join("&");
+    }
+
+    window.location.href = url;
+  });
+
+  // Search functionality with API
+  leaderSearch.addEventListener("input", function () {
+    const query = this.value.toLowerCase().trim();
+
+    if (query.length < 2) {
+      searchResults.classList.add("hidden");
+      return;
+    }
+
+    fetch(`/api/search-leaders?q=${encodeURIComponent(query)}`)
+      .then((response) => response.json())
+      .then((leaders) => {
+        displaySearchResults(leaders);
+      })
+      .catch((error) => {
+        console.error("Error searching leaders:", error);
+      });
+  });
+
+  // Display search results
+  function displaySearchResults(leaders) {
+    if (leaders.length === 0) {
+      searchResults.innerHTML =
+        '<div class="p-4 text-gray-500 text-center">No leaders found</div>';
+    } else {
+      searchResults.innerHTML = leaders
+        .map(
+          (leader) => `
+            <div class="p-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                 onclick="selectLeader(${leader.id}, '${leader.name}', '${leader.zone}', '${leader.cell_day}')">
+                <div class="font-medium text-gray-800">${leader.name}</div>
+                <div class="text-sm text-gray-500">${leader.zone} · Cell: ${leader.cell_day}</div>
+            </div>
+        `
+        )
+        .join("");
+    }
+    searchResults.classList.remove("hidden");
+  }
+
+  // Select a leader
+  function selectLeader(id, name, zone, cellDay) {
+    selectedLeaderName.textContent = name;
+    selectedLeaderZone.textContent = `${zone} · Cell: ${cellDay}`;
+    selectedLeaderId.value = id;
+    selectedLeader.classList.remove("hidden");
+    searchResults.classList.add("hidden");
+    leaderSearch.value = "";
+  }
+
+  // Clear selection
+  function clearSelection() {
+    selectedLeader.classList.add("hidden");
+    selectedLeaderId.value = "";
+    selectedLeaderName.textContent = "";
+    selectedLeaderZone.textContent = "";
+  }
+
+  // Service type toggle
+  serviceTypeRadios.forEach((radio) => {
+    radio.addEventListener("change", function () {
+      if (this.value === "sunday") {
+        sundayFields.classList.remove("hidden");
+        cellFields.classList.add("hidden");
+        document.querySelectorAll(".service-type-card").forEach((card) => {
+          card.classList.remove(
+            "border-blue-500",
+            "border-green-500",
+            "bg-blue-100",
+            "bg-green-100"
+          );
+        });
+        document
+          .querySelector('input[value="sunday"]')
+          .closest("label")
+          .querySelector(".service-type-card")
+          .classList.add("border-blue-500", "bg-blue-100");
+      } else {
+        sundayFields.classList.add("hidden");
+        cellFields.classList.remove("hidden");
+        document.querySelectorAll(".service-type-card").forEach((card) => {
+          card.classList.remove(
+            "border-blue-500",
+            "border-green-500",
+            "bg-blue-100",
+            "bg-green-100"
+          );
+        });
+        document
+          .querySelector('input[value="cell"]')
+          .closest("label")
+          .querySelector(".service-type-card")
+          .classList.add("border-green-500", "bg-green-100");
+      }
+    });
+  });
+
+  // Form submission with API
+  totalsForm.addEventListener("submit", async function (e) {
+    e.preventDefault();
+
+    if (!selectedLeaderId.value) {
+      showError("Please select a leader");
+      return;
+    }
+
+    const serviceType = document.querySelector(
+      'input[name="service_type"]:checked'
+    ).value;
+    const formData = {
+      leader_id: parseInt(selectedLeaderId.value),
+      service_type: serviceType,
+      service_date: document.getElementById("serviceDate").value,
+      notes: document.getElementById("notes").value,
+    };
+
+    if (serviceType === "sunday") {
+      const attendance = document.getElementById("sundayAttendance").value;
+      if (!attendance) {
+        showError("Please enter Sunday attendance");
+        return;
+      }
+      formData.sunday_attendance = parseInt(attendance);
+      formData.sunday_visitors =
+        parseInt(document.getElementById("sundayVisitors").value) || 0;
+    } else {
+      const attendance = document.getElementById("cellAttendance").value;
+      if (!attendance) {
+        showError("Please enter Cell attendance");
+        return;
+      }
+      formData.cell_attendance = parseInt(attendance);
+      formData.cell_visitors =
+        parseInt(document.getElementById("cellVisitors").value) || 0;
+      formData.cell_offering =
+        parseFloat(document.getElementById("cellOffering").value) || 0;
+      formData.cell_decisions =
+        parseInt(document.getElementById("cellDecisions").value) || 0;
+    }
+
+    submitButton.disabled = true;
+    submitText.textContent = "Submitting...";
+    submitSpinner.classList.remove("hidden");
+
+    try {
+      const response = await fetch("/api/submit-totals", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        showSuccess();
+        // Reload data
+        loadStatsOverview();
+        loadRecentSubmissions();
+        // Reset form after success
+        setTimeout(() => {
+          totalsForm.reset();
+          clearSelection();
+          document.querySelectorAll(".service-type-card").forEach((card) => {
+            card.classList.remove(
+              "border-blue-500",
+              "border-green-500",
+              "bg-blue-100",
+              "bg-green-100"
+            );
+          });
+          document
+            .querySelector('input[value="sunday"]')
+            .closest("label")
+            .querySelector(".service-type-card")
+            .classList.add("border-blue-500", "bg-blue-100");
+          document.getElementById("serviceDate").valueAsDate = new Date();
+        }, 2000);
+      } else {
+        showError(result.message || "Error submitting totals");
+      }
+    } catch (error) {
+      showError("Network error. Please try again.");
+    } finally {
+      submitButton.disabled = false;
+      submitText.textContent = "Submit Totals";
+      submitSpinner.classList.add("hidden");
+    }
+  });
+
+  // Show success message
+  function showSuccess() {
+    successMessage.classList.remove("hidden");
+    errorMessage.classList.add("hidden");
+
+    setTimeout(() => {
+      successMessage.classList.add("hidden");
+    }, 5000);
+  }
+
+  // Show error message
+  function showError(message) {
+    errorText.textContent = message;
+    errorMessage.classList.remove("hidden");
+    successMessage.classList.add("hidden");
+
+    setTimeout(() => {
+      errorMessage.classList.add("hidden");
+    }, 5000);
+  }
+
+  // Close search results when clicking outside
+  document.addEventListener("click", function (e) {
+    if (!leaderSearch.contains(e.target) && !searchResults.contains(e.target)) {
+      searchResults.classList.add("hidden");
+    }
+  });
+
+  // Initialize service type UI
+  document
+    .querySelector('input[value="sunday"]')
+    .closest("label")
+    .querySelector(".service-type-card")
+    .classList.add("border-blue-500", "bg-blue-100");
+
+  // Set default date to today
+  document.getElementById("serviceDate").valueAsDate = new Date();
+</script>
+
+<style>
+  #searchResults {
+    z-index: 10;
+  }
+
+  input[type="radio"]:checked + .service-type-card {
+    border-width: 2px;
+  }
+
+  .table-row:hover {
+    background-color: #f9fafb;
+  }
+</style>
+{% endblock %}
