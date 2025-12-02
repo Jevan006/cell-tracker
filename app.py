@@ -35,10 +35,51 @@ app.config["SECRET_KEY"] = os.environ.get(
     "SESSION_SECRET", "dev-secret-key-change-in-production"
 )
 
+# File upload configuration
+app.config["UPLOAD_FOLDER"] = "static/uploads/profile_pictures"
+app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024  # 2MB max file size
+app.config["ALLOWED_EXTENSIONS"] = {"png", "jpg", "jpeg", "gif"}
+app.config["STATIC_UPLOAD_FOLDER"] = "uploads/profile_pictures"
+
+# Ensure upload folder exists
+os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+
 db = SQLAlchemy(app)
 
 
-# Database Models
+# File upload helper functions
+def allowed_file(filename):
+    return (
+        "." in filename
+        and filename.rsplit(".", 1)[1].lower() in app.config["ALLOWED_EXTENSIONS"]
+    )
+
+
+def save_profile_picture(file, leader_id):
+    """Save profile picture and return the filename"""
+    if file and allowed_file(file.filename):
+        # Create a secure filename: leader_{id}_timestamp.ext
+        timestamp = int(datetime.now().timestamp())
+        ext = file.filename.rsplit(".", 1)[1].lower()
+        filename = f"leader_{leader_id}_{timestamp}.{ext}"
+
+        # Save file
+        filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+        file.save(filepath)
+
+        return filename
+    return None
+
+
+def delete_profile_picture(filename):
+    """Delete a profile picture file"""
+    if filename:
+        filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+        if os.path.exists(filepath):
+            os.remove(filepath)
+
+
+# Database Models with profile pictures
 class Leader(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
@@ -47,6 +88,7 @@ class Leader(db.Model):
     contact_number = db.Column(db.String(20))
     email = db.Column(db.String(100))
     address = db.Column(db.Text)
+    profile_picture = db.Column(db.String(255))  # Store filename or URL
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(
@@ -54,6 +96,38 @@ class Leader(db.Model):
     )
 
     service_records = db.relationship("ServiceRecord", backref="leader", lazy=True)
+
+    def __init__(
+        self,
+        name,
+        zone,
+        cell_day="Thursday",
+        contact_number="",
+        email="",
+        address="",
+        profile_picture=None,
+        is_active=True,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.name = name
+        self.zone = zone
+        self.cell_day = cell_day
+        self.contact_number = contact_number
+        self.email = email
+        self.address = address
+        self.profile_picture = profile_picture
+        self.is_active = is_active
+
+    def get_profile_picture_url(self):
+        """Get the profile picture URL or return default"""
+        if self.profile_picture:
+            return f"/static/uploads/profile_pictures/{self.profile_picture}"
+        return None
+
+    def get_initials(self):
+        """Get initials for avatar fallback"""
+        return "".join(word[0].upper() for word in self.name.split()[:2])
 
 
 class ServiceRecord(db.Model):
@@ -72,6 +146,32 @@ class ServiceRecord(db.Model):
 
     notes = db.Column(db.Text)
     submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __init__(
+        self,
+        leader_id,
+        service_type,
+        service_date,
+        sunday_attendance=0,
+        sunday_visitors=0,
+        cell_attendance=0,
+        cell_visitors=0,
+        cell_offering=0.0,
+        cell_decisions=0,
+        notes="",
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.leader_id = leader_id
+        self.service_type = service_type
+        self.service_date = service_date
+        self.sunday_attendance = sunday_attendance
+        self.sunday_visitors = sunday_visitors
+        self.cell_attendance = cell_attendance
+        self.cell_visitors = cell_visitors
+        self.cell_offering = cell_offering
+        self.cell_decisions = cell_decisions
+        self.notes = notes
 
 
 # Create tables
@@ -155,6 +255,12 @@ def dashboard():
     return render_template("dashboard.html")
 
 
+@app.route("/system-status")
+@login_required
+def system_status():
+    return render_template("system_status.html")
+
+
 # Authentication routes
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -226,6 +332,9 @@ def search_leaders():
             "cell_day": leader.cell_day,
             "contact_number": leader.contact_number,
             "email": leader.email,
+            "profile_picture": leader.profile_picture,
+            "profile_picture_url": leader.get_profile_picture_url(),
+            "initials": leader.get_initials(),
         }
         for leader in leaders
     ]
@@ -426,6 +535,233 @@ def analytics_trends():
     return jsonify(trends_list)
 
 
+# Profile Picture API endpoints
+@app.route("/api/leader/<int:leader_id>/upload-picture", methods=["POST"])
+@login_required
+def upload_leader_picture(leader_id):
+    """Upload a profile picture for a leader"""
+    try:
+        leader = Leader.query.get_or_404(leader_id)
+
+        if "profile_picture" not in request.files:
+            return jsonify({"success": False, "message": "No file provided"}), 400
+
+        file = request.files["profile_picture"]
+
+        if file.filename == "":
+            return jsonify({"success": False, "message": "No file selected"}), 400
+
+        # Check file size
+        if len(file.read()) > app.config["MAX_CONTENT_LENGTH"]:
+            return jsonify(
+                {"success": False, "message": "File too large. Maximum 2MB allowed."}
+            ), 400
+
+        file.seek(0)  # Reset file pointer
+
+        # Delete old picture if exists
+        if leader.profile_picture:
+            delete_profile_picture(leader.profile_picture)
+
+        # Save new picture
+        filename = save_profile_picture(file, leader_id)
+
+        if filename:
+            leader.profile_picture = filename
+            leader.updated_at = datetime.utcnow()
+            db.session.commit()
+
+            return jsonify(
+                {
+                    "success": True,
+                    "message": "Profile picture uploaded successfully!",
+                    "filename": filename,
+                    "profile_picture_url": f"/static/uploads/profile_pictures/{filename}",
+                }
+            )
+        else:
+            return jsonify(
+                {
+                    "success": False,
+                    "message": "Invalid file type. Allowed: PNG, JPG, JPEG, GIF",
+                }
+            ), 400
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify(
+            {"success": False, "message": f"Error uploading picture: {str(e)}"}
+        ), 500
+
+
+@app.route("/api/leader/<int:leader_id>/remove-picture", methods=["POST"])
+@login_required
+def remove_leader_picture(leader_id):
+    """Remove a leader's profile picture"""
+    try:
+        leader = Leader.query.get_or_404(leader_id)
+
+        if leader.profile_picture:
+            delete_profile_picture(leader.profile_picture)
+            leader.profile_picture = None
+            leader.updated_at = datetime.utcnow()
+            db.session.commit()
+
+        return jsonify(
+            {"success": True, "message": "Profile picture removed successfully!"}
+        )
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify(
+            {"success": False, "message": f"Error removing picture: {str(e)}"}
+        ), 500
+
+
+# Backup & Restore API endpoints
+@app.route("/api/backup-data")
+@login_required
+def backup_data():
+    """Create a JSON backup of all data"""
+    try:
+        # Backup leaders
+        leaders = Leader.query.all()
+        leaders_data = [
+            {
+                "id": leader.id,
+                "name": leader.name,
+                "zone": leader.zone,
+                "cell_day": leader.cell_day,
+                "contact_number": leader.contact_number,
+                "email": leader.email,
+                "address": leader.address,
+                "profile_picture": leader.profile_picture,
+                "is_active": leader.is_active,
+                "created_at": leader.created_at.isoformat()
+                if leader.created_at
+                else None,
+                "updated_at": leader.updated_at.isoformat()
+                if leader.updated_at
+                else None,
+            }
+            for leader in leaders
+        ]
+
+        # Backup service records
+        service_records = ServiceRecord.query.all()
+        records_data = [
+            {
+                "id": record.id,
+                "leader_id": record.leader_id,
+                "service_type": record.service_type,
+                "service_date": record.service_date.isoformat(),
+                "sunday_attendance": record.sunday_attendance,
+                "sunday_visitors": record.sunday_visitors,
+                "cell_attendance": record.cell_attendance,
+                "cell_visitors": record.cell_visitors,
+                "cell_offering": record.cell_offering,
+                "cell_decisions": record.cell_decisions,
+                "notes": record.notes,
+                "submitted_at": record.submitted_at.isoformat()
+                if record.submitted_at
+                else None,
+            }
+            for record in service_records
+        ]
+
+        backup = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "leaders": leaders_data,
+            "service_records": records_data,
+        }
+
+        return Response(
+            json.dumps(backup, indent=2),
+            mimetype="application/json",
+            headers={"Content-Disposition": "attachment; filename=church_backup.json"},
+        )
+
+    except Exception as e:
+        return jsonify({"success": False, "message": f"Backup failed: {str(e)}"}), 500
+
+
+@app.route("/api/restore-data", methods=["POST"])
+@login_required
+def restore_data():
+    """Restore data from JSON backup"""
+    try:
+        if "file" not in request.files:
+            return jsonify({"success": False, "message": "No file provided"}), 400
+
+        file = request.files["file"]
+        if file.filename == "":
+            return jsonify({"success": False, "message": "No file selected"}), 400
+
+        if file and file.filename.endswith(".json"):
+            data = json.load(file)
+
+            # Clear existing data
+            db.session.query(ServiceRecord).delete()
+            db.session.query(Leader).delete()
+
+            # Restore leaders
+            for leader_data in data.get("leaders", []):
+                leader = Leader(
+                    name=leader_data["name"],
+                    zone=leader_data["zone"],
+                    cell_day=leader_data.get("cell_day", "Thursday"),
+                    contact_number=leader_data.get("contact_number", ""),
+                    email=leader_data.get("email", ""),
+                    address=leader_data.get("address", ""),
+                    profile_picture=leader_data.get("profile_picture"),
+                    is_active=leader_data.get("is_active", True),
+                )
+                # Set ID directly for restoration
+                leader.id = leader_data["id"]
+                if leader_data.get("created_at"):
+                    leader.created_at = datetime.fromisoformat(
+                        leader_data["created_at"]
+                    )
+                if leader_data.get("updated_at"):
+                    leader.updated_at = datetime.fromisoformat(
+                        leader_data["updated_at"]
+                    )
+                db.session.add(leader)
+
+            # Restore service records
+            for record_data in data.get("service_records", []):
+                record = ServiceRecord(
+                    leader_id=record_data["leader_id"],
+                    service_type=record_data["service_type"],
+                    service_date=datetime.strptime(
+                        record_data["service_date"], "%Y-%m-%d"
+                    ).date(),
+                    sunday_attendance=record_data.get("sunday_attendance", 0),
+                    sunday_visitors=record_data.get("sunday_visitors", 0),
+                    cell_attendance=record_data.get("cell_attendance", 0),
+                    cell_visitors=record_data.get("cell_visitors", 0),
+                    cell_offering=record_data.get("cell_offering", 0.0),
+                    cell_decisions=record_data.get("cell_decisions", 0),
+                    notes=record_data.get("notes", ""),
+                )
+                # Set ID and submitted_at directly for restoration
+                record.id = record_data["id"]
+                if record_data.get("submitted_at"):
+                    record.submitted_at = datetime.fromisoformat(
+                        record_data["submitted_at"]
+                    )
+                db.session.add(record)
+
+            db.session.commit()
+            return jsonify({"success": True, "message": "Data restored successfully!"})
+
+        return jsonify({"success": False, "message": "Invalid file format"}), 400
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "message": f"Restore failed: {str(e)}"}), 500
+
+
 # Protected API endpoints (require authentication)
 @app.route("/api/submit-totals", methods=["POST"])
 @login_required
@@ -492,6 +828,9 @@ def get_leaders():
             "contact_number": leader.contact_number,
             "email": leader.email,
             "address": leader.address,
+            "profile_picture": leader.profile_picture,
+            "profile_picture_url": leader.get_profile_picture_url(),
+            "initials": leader.get_initials(),
             "is_active": leader.is_active,
             "total_submissions": len(leader.service_records),
             "last_submission": max(
@@ -519,6 +858,9 @@ def get_leader(leader_id):
         "contact_number": leader.contact_number,
         "email": leader.email,
         "address": leader.address,
+        "profile_picture": leader.profile_picture,
+        "profile_picture_url": leader.get_profile_picture_url(),
+        "initials": leader.get_initials(),
         "is_active": leader.is_active,
     }
 
@@ -538,6 +880,7 @@ def create_leader():
             contact_number=data.get("contact_number", ""),
             email=data.get("email", ""),
             address=data.get("address", ""),
+            profile_picture=data.get("profile_picture"),
         )
 
         db.session.add(leader)
@@ -747,139 +1090,6 @@ def seed_database():
     except Exception as e:
         db.session.rollback()
         return f"Error seeding database: {str(e)}"
-
-
-@app.route("/api/backup-data")
-@login_required
-def backup_data():
-    """Create a JSON backup of all data"""
-    try:
-        # Backup leaders
-        leaders = Leader.query.all()
-        leaders_data = [
-            {
-                "id": leader.id,
-                "name": leader.name,
-                "zone": leader.zone,
-                "cell_day": leader.cell_day,
-                "contact_number": leader.contact_number,
-                "email": leader.email,
-                "address": leader.address,
-                "is_active": leader.is_active,
-                "created_at": leader.created_at.isoformat()
-                if leader.created_at
-                else None,
-                "updated_at": leader.updated_at.isoformat()
-                if leader.updated_at
-                else None,
-            }
-            for leader in leaders
-        ]
-
-        # Backup service records
-        service_records = ServiceRecord.query.all()
-        records_data = [
-            {
-                "id": record.id,
-                "leader_id": record.leader_id,
-                "service_type": record.service_type,
-                "service_date": record.service_date.isoformat(),
-                "sunday_attendance": record.sunday_attendance,
-                "sunday_visitors": record.sunday_visitors,
-                "cell_attendance": record.cell_attendance,
-                "cell_visitors": record.cell_visitors,
-                "cell_offering": record.cell_offering,
-                "cell_decisions": record.cell_decisions,
-                "notes": record.notes,
-                "submitted_at": record.submitted_at.isoformat()
-                if record.submitted_at
-                else None,
-            }
-            for record in service_records
-        ]
-
-        backup = {
-            "timestamp": datetime.utcnow().isoformat(),
-            "leaders": leaders_data,
-            "service_records": records_data,
-        }
-
-        return Response(
-            json.dumps(backup, indent=2),
-            mimetype="application/json",
-            headers={"Content-Disposition": "attachment; filename=church_backup.json"},
-        )
-
-    except Exception as e:
-        return jsonify({"success": False, "message": f"Backup failed: {str(e)}"}), 500
-
-
-@app.route("/system-status")
-@login_required
-def system_status():
-    return render_template("system_status.html")
-
-
-@app.route("/api/restore-data", methods=["POST"])
-@login_required
-def restore_data():
-    """Restore data from JSON backup"""
-    try:
-        if "file" not in request.files:
-            return jsonify({"success": False, "message": "No file provided"}), 400
-
-        file = request.files["file"]
-        if file.filename == "":
-            return jsonify({"success": False, "message": "No file selected"}), 400
-
-        if file and file.filename.endswith(".json"):
-            data = json.load(file)
-
-            # Clear existing data
-            db.session.query(ServiceRecord).delete()
-            db.session.query(Leader).delete()
-
-            # Restore leaders
-            for leader_data in data.get("leaders", []):
-                leader = Leader(
-                    id=leader_data["id"],
-                    name=leader_data["name"],
-                    zone=leader_data["zone"],
-                    cell_day=leader_data.get("cell_day", "Thursday"),
-                    contact_number=leader_data.get("contact_number", ""),
-                    email=leader_data.get("email", ""),
-                    address=leader_data.get("address", ""),
-                    is_active=leader_data.get("is_active", True),
-                )
-                db.session.add(leader)
-
-            # Restore service records
-            for record_data in data.get("service_records", []):
-                record = ServiceRecord(
-                    id=record_data["id"],
-                    leader_id=record_data["leader_id"],
-                    service_type=record_data["service_type"],
-                    service_date=datetime.strptime(
-                        record_data["service_date"], "%Y-%m-%d"
-                    ).date(),
-                    sunday_attendance=record_data.get("sunday_attendance", 0),
-                    sunday_visitors=record_data.get("sunday_visitors", 0),
-                    cell_attendance=record_data.get("cell_attendance", 0),
-                    cell_visitors=record_data.get("cell_visitors", 0),
-                    cell_offering=record_data.get("cell_offering", 0.0),
-                    cell_decisions=record_data.get("cell_decisions", 0),
-                    notes=record_data.get("notes", ""),
-                )
-                db.session.add(record)
-
-            db.session.commit()
-            return jsonify({"success": True, "message": "Data restored successfully!"})
-
-        return jsonify({"success": False, "message": "Invalid file format"}), 400
-
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"success": False, "message": f"Restore failed: {str(e)}"}), 500
 
 
 if __name__ == "__main__":
