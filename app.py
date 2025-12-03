@@ -804,7 +804,7 @@ def submit_totals():
 
 
 @app.route("/api/leaders")
-@login_required
+@login_required  # Temporarily commented out for debugging
 def get_leaders():
     zone_filter = request.args.get("zone", "")
     active_only = request.args.get("active_only", "true") == "true"
@@ -1060,6 +1060,52 @@ def stats_overview():
             "total_offering": float(total_offering),
         }
     )
+
+
+@app.route("/api/zones")
+def get_zones():
+    """Get all available zones"""
+    # Use your SA_ZONES list as the source
+    zones = sorted(set(SA_ZONES))
+    return jsonify(zones)
+
+
+@app.route("/api/leader/<int:leader_id>/delete", methods=["DELETE"])
+@login_required
+def delete_leader(leader_id):
+    """Delete a leader"""
+    try:
+        leader = Leader.query.get_or_404(leader_id)
+
+        # Delete profile picture if exists
+        if leader.profile_picture:
+            delete_profile_picture(leader.profile_picture)
+
+        db.session.delete(leader)
+        db.session.commit()
+
+        return jsonify({"success": True, "message": "Leader deleted successfully!"})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify(
+            {"success": False, "message": f"Error deleting leader: {str(e)}"}
+        ), 500
+
+
+@app.route("/api/debug/routes")
+def debug_routes():
+    """Show all available routes for debugging"""
+    routes = []
+    for rule in app.url_map.iter_rules():
+        routes.append(
+            {
+                "endpoint": rule.endpoint,
+                "methods": list(rule.methods),
+                "rule": rule.rule,
+            }
+        )
+    return jsonify(routes)
 
 
 # Seed database with enhanced sample data

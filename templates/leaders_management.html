@@ -219,6 +219,78 @@
     </div>
   </div>
 </div>
+
+<!-- Profile Picture Upload Modal -->
+<div
+  id="pictureModal"
+  class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50"
+>
+  <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+    <div class="p-6">
+      <h3 class="text-lg font-semibold text-gray-800 mb-4">
+        Upload Profile Picture
+      </h3>
+
+      <form id="pictureForm" class="space-y-4">
+        <input type="hidden" id="pictureLeaderId" />
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Select Image
+          </label>
+          <input
+            type="file"
+            id="profilePicture"
+            accept="image/*"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            required
+          />
+          <p class="text-xs text-gray-500 mt-1">
+            Maximum file size: 2MB. Allowed: JPG, PNG, GIF
+          </p>
+        </div>
+
+        <div id="currentPicture" class="hidden">
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Current Picture
+          </label>
+          <div class="flex items-center space-x-4">
+            <img
+              id="currentPictureImg"
+              class="h-16 w-16 rounded-full object-cover"
+              src=""
+              alt="Current"
+            />
+            <button
+              type="button"
+              onclick="removeProfilePicture()"
+              class="px-3 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200"
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+
+        <div class="flex space-x-3 pt-4">
+          <button
+            type="button"
+            onclick="hidePictureModal()"
+            class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            class="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+          >
+            Upload Picture
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <!-- Backup & Restore Section -->
 <div class="mt-8 bg-yellow-50 border border-yellow-200 rounded-lg p-6">
   <h3 class="text-lg font-semibold text-yellow-800 mb-4 flex items-center">
@@ -308,10 +380,11 @@
   // Load available zones
   async function loadZones() {
     try {
-      const response = await fetch("/api/leaders?active_only=true");
-      const leaders = await response.json();
-
-      const zones = [...new Set(leaders.map((leader) => leader.zone))].sort();
+      const response = await fetch("/api/zones");
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const zones = await response.json();
 
       // Populate zone filter
       zoneFilter.innerHTML =
@@ -328,6 +401,32 @@
           .join("");
     } catch (error) {
       console.error("Error loading zones:", error);
+      // Fallback to hardcoded zones
+      const fallbackZones = [
+        "Soweto",
+        "Sandton",
+        "Alexandra",
+        "Randburg",
+        "Midrand",
+        "Diepsloot",
+        "Fourways",
+        "Pretoria",
+        "Centurion",
+      ];
+
+      zoneFilter.innerHTML =
+        '<option value="">All Zones</option>' +
+        fallbackZones
+          .map((zone) => `<option value="${zone}">${zone}</option>`)
+          .join("");
+
+      leaderZone.innerHTML =
+        '<option value="">Select Zone</option>' +
+        fallbackZones
+          .map((zone) => `<option value="${zone}">${zone}</option>`)
+          .join("");
+
+      showError("Could not load zones. Using default list.");
     }
   }
 
@@ -338,6 +437,15 @@
       const params = zone ? `?zone=${encodeURIComponent(zone)}` : "";
 
       const response = await fetch(`/api/leaders${params}`);
+
+      // Check if response is JSON
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await response.text();
+        console.error("Received non-JSON response:", text.substring(0, 500));
+        throw new Error("Server returned non-JSON response");
+      }
+
       const leaders = await response.json();
 
       if (leaders.length === 0) {
@@ -351,69 +459,96 @@
       leadersBody.innerHTML = leaders
         .map(
           (leader) => `
-            <tr class="hover:bg-gray-50 ${
-              leader.is_active ? "" : "bg-gray-100"
-            }">
-                <td class="px-4 py-3">
-                    <div class="font-medium text-gray-900">${leader.name}</div>
-                    <div class="text-sm text-gray-500">${
-                      leader.email || "No email"
-                    }</div>
-                </td>
-                <td class="px-4 py-3 text-gray-900">${leader.zone}</td>
-                <td class="px-4 py-3">
-                    <div class="text-sm text-gray-900">${
-                      leader.contact_number || "No contact"
-                    }</div>
-                    <div class="text-xs text-gray-500 truncate max-w-xs">${
-                      leader.address || "No address"
-                    }</div>
-                </td>
-                <td class="px-4 py-3 text-gray-900">${leader.cell_day}</td>
-                <td class="px-4 py-3">
-                    <div class="text-sm text-gray-900">${
-                      leader.total_submissions
-                    } submissions</div>
-                    <div class="text-xs text-gray-500">Last: ${
-                      leader.last_submission
-                    }</div>
-                </td>
-                <td class="px-4 py-3">
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      leader.is_active
-                        ? "bg-green-100 text-green-800"
-                        : "bg-red-100 text-red-800"
-                    }">
-                        ${leader.is_active ? "Active" : "Inactive"}
-                    </span>
-                </td>
-                <td class="px-4 py-3">
-                    <div class="flex space-x-2">
-                        <button onclick="editLeader(${
-                          leader.id
-                        })" class="text-blue-600 hover:text-blue-800">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button onclick="toggleLeaderStatus(${
-                          leader.id
-                        }, ${!leader.is_active})" class="${
+              <tr class="hover:bg-gray-50 ${
+                leader.is_active ? "" : "bg-gray-100"
+              }">
+                  <td class="px-4 py-3">
+                      <div class="flex items-center">
+                          <div class="flex-shrink-0 h-10 w-10">
+                              ${
+                                leader.profile_picture_url
+                                  ? `<img class="h-10 w-10 rounded-full object-cover" src="${leader.profile_picture_url}" alt="${leader.name}">`
+                                  : `<div class="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                    <span class="text-blue-600 font-medium">${
+                                      leader.initials || "LG"
+                                    }</span>
+                                  </div>`
+                              }
+                          </div>
+                          <div class="ml-4">
+                              <div class="font-medium text-gray-900">${
+                                leader.name
+                              }</div>
+                              <div class="text-sm text-gray-500">${
+                                leader.email || "No email"
+                              }</div>
+                          </div>
+                      </div>
+                  </td>
+                  <td class="px-4 py-3 text-gray-900">${leader.zone}</td>
+                  <td class="px-4 py-3">
+                      <div class="text-sm text-gray-900">${
+                        leader.contact_number || "No contact"
+                      }</div>
+                      <div class="text-xs text-gray-500 truncate max-w-xs">${
+                        leader.address || "No address"
+                      }</div>
+                  </td>
+                  <td class="px-4 py-3 text-gray-900">${leader.cell_day}</td>
+                  <td class="px-4 py-3">
+                      <div class="text-sm text-gray-900">${
+                        leader.total_submissions
+                      } submissions</div>
+                      <div class="text-xs text-gray-500">Last: ${
+                        leader.last_submission
+                      }</div>
+                  </td>
+                  <td class="px-4 py-3">
+                      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        leader.is_active
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
+                      }">
+                          ${leader.is_active ? "Active" : "Inactive"}
+                      </span>
+                  </td>
+                  <td class="px-4 py-3">
+                      <div class="flex space-x-2">
+                          <button onclick="editLeader(${
+                            leader.id
+                          })" class="text-blue-600 hover:text-blue-800" title="Edit">
+                              <i class="fas fa-edit"></i>
+                          </button>
+                          <button onclick="toggleLeaderStatus(${
+                            leader.id
+                          }, ${!leader.is_active})" class="${
             leader.is_active
               ? "text-orange-600 hover:text-orange-800"
               : "text-green-600 hover:text-green-800"
-          }">
-                            <i class="fas ${
-                              leader.is_active ? "fa-pause" : "fa-play"
-                            }"></i>
-                        </button>
-                    </div>
-                </td>
-            </tr>
-        `
+          }" title="${leader.is_active ? "Deactivate" : "Activate"}">
+                              <i class="fas ${
+                                leader.is_active ? "fa-pause" : "fa-play"
+                              }"></i>
+                          </button>
+                          <button onclick="deleteLeader(${
+                            leader.id
+                          })" class="text-red-600 hover:text-red-800" title="Delete">
+                              <i class="fas fa-trash"></i>
+                          </button>
+                          <button onclick="showUploadPictureModal(${
+                            leader.id
+                          })" class="text-purple-600 hover:text-purple-800" title="Upload Picture">
+                              <i class="fas fa-camera"></i>
+                          </button>
+                      </div>
+                  </td>
+              </tr>
+          `
         )
         .join("");
     } catch (error) {
       console.error("Error loading leaders:", error);
-      showError("Error loading leaders list");
+      showError("Error loading leaders list. Check console for details.");
     }
   }
 
@@ -455,6 +590,39 @@
     leaderModal.classList.add("hidden");
   }
 
+  // Delete a leader
+  async function deleteLeader(leaderId) {
+    if (
+      !confirm(
+        "Are you sure you want to delete this leader? This action cannot be undone."
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/leader/${leaderId}/delete`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        showSuccess("Leader deleted successfully!");
+        loadLeaders(); // Refresh the list
+      } else {
+        showError(result.message || "Failed to delete leader");
+      }
+    } catch (error) {
+      console.error("Error deleting leader:", error);
+      showError("Error deleting leader. Check console for details.");
+    }
+  }
+
   // Toggle leader status
   async function toggleLeaderStatus(leaderId, newStatus) {
     try {
@@ -483,6 +651,105 @@
       showError("Error updating leader status");
     }
   }
+
+  // Show upload picture modal
+  async function showUploadPictureModal(leaderId) {
+    document.getElementById("pictureLeaderId").value = leaderId;
+
+    // Check if leader has existing picture
+    try {
+      const response = await fetch(`/api/leader/${leaderId}`);
+      const leader = await response.json();
+
+      const currentPictureDiv = document.getElementById("currentPicture");
+      const currentPictureImg = document.getElementById("currentPictureImg");
+
+      if (leader.profile_picture_url) {
+        currentPictureImg.src = leader.profile_picture_url;
+        currentPictureDiv.classList.remove("hidden");
+      } else {
+        currentPictureDiv.classList.add("hidden");
+      }
+    } catch (error) {
+      console.error("Error loading leader picture:", error);
+      document.getElementById("currentPicture").classList.add("hidden");
+    }
+
+    document.getElementById("pictureModal").classList.remove("hidden");
+  }
+
+  // Hide picture modal
+  function hidePictureModal() {
+    document.getElementById("pictureModal").classList.add("hidden");
+    document.getElementById("pictureForm").reset();
+  }
+
+  // Remove profile picture
+  async function removeProfilePicture() {
+    const leaderId = document.getElementById("pictureLeaderId").value;
+
+    if (!confirm("Remove profile picture?")) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/leader/${leaderId}/remove-picture`, {
+        method: "POST",
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        showSuccess("Profile picture removed!");
+        document.getElementById("currentPicture").classList.add("hidden");
+        loadLeaders(); // Refresh the list
+      } else {
+        showError(result.message);
+      }
+    } catch (error) {
+      console.error("Error removing picture:", error);
+      showError("Error removing picture");
+    }
+  }
+
+  // Handle picture form submission
+  document
+    .getElementById("pictureForm")
+    .addEventListener("submit", async function (e) {
+      e.preventDefault();
+
+      const leaderId = document.getElementById("pictureLeaderId").value;
+      const fileInput = document.getElementById("profilePicture");
+      const file = fileInput.files[0];
+
+      if (!file) {
+        showError("Please select a file");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("profile_picture", file);
+
+      try {
+        const response = await fetch(`/api/leader/${leaderId}/upload-picture`, {
+          method: "POST",
+          body: formData,
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          showSuccess("Profile picture uploaded!");
+          hidePictureModal();
+          loadLeaders(); // Refresh the list
+        } else {
+          showError(result.message);
+        }
+      } catch (error) {
+        console.error("Error uploading picture:", error);
+        showError("Error uploading picture");
+      }
+    });
 
   // Handle form submission
   leaderForm.addEventListener("submit", async function (e) {
@@ -555,6 +822,15 @@
       hideLeaderModal();
     }
   });
+
+  // Close picture modal when clicking outside
+  document
+    .getElementById("pictureModal")
+    .addEventListener("click", function (e) {
+      if (e.target === document.getElementById("pictureModal")) {
+        hidePictureModal();
+      }
+    });
 </script>
 
 <style>
