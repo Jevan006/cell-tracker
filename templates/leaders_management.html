@@ -475,17 +475,8 @@
     } catch (error) {
       console.error("Error loading zones:", error);
       // Fallback to hardcoded zones
-      const fallbackZones = [
-        "Soweto",
-        "Sandton",
-        "Alexandra",
-        "Randburg",
-        "Midrand",
-        "Diepsloot",
-        "Fourways",
-        "Pretoria",
-        "Centurion",
-      ];
+      // Fallback to your zones
+      const fallbackZones = ["Chestnut", "KB South", "KB North"];
 
       zoneFilter.innerHTML =
         '<option value="">All Zones</option>' +

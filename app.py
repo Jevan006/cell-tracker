@@ -199,47 +199,8 @@ def is_authenticated():
 
 
 # Sample South African zones
-SA_ZONES = [
-    "Soweto",
-    "Sandton",
-    "Alexandra",
-    "Randburg",
-    "Midrand",
-    "Diepsloot",
-    "Fourways",
-    "Pretoria",
-    "Centurion",
-    "Johannesburg CBD",
-    "Roodepoort",
-    "Krugersdorp",
-    "Boksburg",
-    "Benoni",
-    "Germiston",
-    "Springs",
-    "Brakpan",
-    "Kempton Park",
-    "Alberton",
-    "Vereeniging",
-    "Vanderbijlpark",
-    "Sebokeng",
-    "Sharpeville",
-    "Katlehong",
-    "Thokoza",
-    "Tembisa",
-    "Daveyton",
-    "Etwatwa",
-    "KwaThema",
-    "Soshanguve",
-    "Mamelodi",
-    "Atteridgeville",
-    "Saulsville",
-    "Garankuwa",
-    "Ivory Park",
-    "Rabie Ridge",
-    "Kaalfontein",
-    "Thembisa",
-    "Olifantsfontein",
-]
+# Zones for your church
+SA_ZONES = ["Chestnut", "KB South", "KB North"]
 
 CELL_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
 
@@ -1109,6 +1070,7 @@ def debug_routes():
 
 
 # Seed database with enhanced sample data
+# Seed database with enhanced sample data
 @app.route("/seed-database")
 def seed_database():
     try:
@@ -1117,21 +1079,31 @@ def seed_database():
         db.session.commit()
 
         leaders = []
-        for i in range(1, 71):
+        # Create 30 leaders (10 per zone)
+        for i in range(1, 31):
+            # Distribute evenly among 3 zones
+            zone_index = (i - 1) % 3
+            zone = SA_ZONES[zone_index]
+
+            # Create leader names like Leader 1, Leader 2, etc.
             leader = Leader(
-                name=f"Leader {chr(64 + ((i - 1) % 26) + 1)}{(i - 1) // 26 + 1 if i > 26 else ''}".strip(),
-                zone=SA_ZONES[i % len(SA_ZONES)],
-                cell_day=CELL_DAYS[i % len(CELL_DAYS)],
+                name=f"Leader {i}",
+                zone=zone,
+                cell_day=CELL_DAYS[i % len(CELL_DAYS)],  # Spread across days
                 contact_number=f"+27 {70 + i % 30:02d} {100 + i % 900:03d} {1000 + i % 9000:04d}",
                 email=f"leader{i}@church.org.za",
-                address=f"{i * 10} Main Street, {SA_ZONES[i % len(SA_ZONES)]}, South Africa",
+                address=f"{i * 10} Main Street, {zone}, South Africa",
             )
             leaders.append(leader)
 
         db.session.add_all(leaders)
         db.session.commit()
 
-        return f"Successfully added {len(leaders)} leaders with contact details to database!"
+        return (
+            f"Successfully added {len(leaders)} leaders across 3 zones to database!<br><br>"
+            + f"Zones: {', '.join(SA_ZONES)}<br>"
+            + f"Leaders per zone: {len(leaders) // len(SA_ZONES)}"
+        )
 
     except Exception as e:
         db.session.rollback()

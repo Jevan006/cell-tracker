@@ -3,8 +3,18 @@ services:
     name: church-cell-tracker
     env: python
     plan: free
-    buildCommand: pip install -r requirements-prod.txt
+    buildCommand: |
+      pip install -r requirements-prod.txt
+      python create_db.py
     startCommand: gunicorn app:app
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: ADMIN_PASSWORD
+        value: jevan006 # Change this in production!
+    disk:
+      name: uploads
+      mountPath: /opt/render/project/src/static/uploads
+      sizeGB: 1
