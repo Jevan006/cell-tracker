@@ -291,6 +291,74 @@
   </div>
 </div>
 
+<!-- Profile Picture Viewer Modal -->
+<div
+  id="pictureViewerModal"
+  class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50"
+>
+  <div
+    class="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-90vh overflow-hidden"
+  >
+    <div class="flex justify-between items-center p-4 border-b">
+      <h3 class="text-lg font-semibold text-gray-800" id="viewerTitle">
+        Profile Picture
+      </h3>
+      <button
+        onclick="hidePictureViewer()"
+        class="text-gray-500 hover:text-gray-700"
+      >
+        <i class="fas fa-times text-xl"></i>
+      </button>
+    </div>
+
+    <div class="p-6 flex flex-col items-center justify-center">
+      <!-- Large Profile Picture -->
+      <div class="mb-4">
+        <img
+          id="enlargedProfilePicture"
+          class="max-w-full max-h-96 rounded-lg shadow-lg object-contain"
+          src=""
+          alt="Enlarged Profile Picture"
+        />
+      </div>
+
+      <!-- Leader Info -->
+      <div class="text-center" id="viewerLeaderInfo">
+        <h4
+          class="text-xl font-semibold text-gray-800"
+          id="viewerLeaderName"
+        ></h4>
+        <p class="text-gray-600" id="viewerLeaderZone"></p>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="mt-6 flex space-x-4" id="viewerActions">
+        <button
+          onclick="downloadProfilePicture()"
+          class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center"
+        >
+          <i class="fas fa-download mr-2"></i>
+          Download
+        </button>
+        <button
+          onclick="showUploadPictureModalFromViewer()"
+          class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center"
+        >
+          <i class="fas fa-camera mr-2"></i>
+          Change Picture
+        </button>
+        <button
+          onclick="removeProfilePictureFromViewer()"
+          class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center"
+        >
+          <i class="fas fa-trash mr-2"></i>
+          Remove
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Backup & Restore Section -->
 <div class="mt-8 bg-yellow-50 border border-yellow-200 rounded-lg p-6">
   <h3 class="text-lg font-semibold text-yellow-800 mb-4 flex items-center">
@@ -370,6 +438,11 @@
   const leaderForm = document.getElementById("leaderForm");
   const zoneFilter = document.getElementById("zoneFilter");
   const leaderZone = document.getElementById("leaderZone");
+
+  // Global variables for picture viewer
+  let currentViewerLeaderId = null;
+  let currentViewerLeaderName = null;
+  let currentViewerLeaderZone = null;
 
   // Initialize page
   document.addEventListener("DOMContentLoaded", function () {
@@ -467,8 +540,24 @@
                           <div class="flex-shrink-0 h-10 w-10">
                               ${
                                 leader.profile_picture_url
-                                  ? `<img class="h-10 w-10 rounded-full object-cover" src="${leader.profile_picture_url}" alt="${leader.name}">`
-                                  : `<div class="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                  ? `<img class="h-10 w-10 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                                       src="${leader.profile_picture_url}"
+                                       alt="${leader.name}"
+                                       onclick="showEnlargedProfilePicture(${
+                                         leader.id
+                                       }, '${leader.name.replace(
+                                      /'/g,
+                                      "\\'"
+                                    )}', '${leader.zone}', '${
+                                      leader.profile_picture_url
+                                    }')">`
+                                  : `<div class="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center cursor-pointer hover:bg-blue-200 transition-colors"
+                                       onclick="showEnlargedProfilePicture(${
+                                         leader.id
+                                       }, '${leader.name.replace(
+                                      /'/g,
+                                      "\\'"
+                                    )}', '${leader.zone}', null)">
                                     <span class="text-blue-600 font-medium">${
                                       leader.initials || "LG"
                                     }</span>
@@ -712,6 +801,119 @@
     }
   }
 
+  // Show enlarged profile picture with loading indicator
+  function showEnlargedProfilePicture(
+    leaderId,
+    leaderName,
+    leaderZone,
+    pictureUrl
+  ) {
+    currentViewerLeaderId = leaderId;
+    currentViewerLeaderName = leaderName;
+    currentViewerLeaderZone = leaderZone;
+
+    const enlargedImg = document.getElementById("enlargedProfilePicture");
+    const leaderNameEl = document.getElementById("viewerLeaderName");
+    const leaderZoneEl = document.getElementById("viewerLeaderZone");
+    const viewerActions = document.getElementById("viewerActions");
+
+    // Show loading state
+    enlargedImg.classList.add("opacity-0");
+    viewerActions.classList.add("opacity-50", "pointer-events-none");
+
+    // Set the image
+    if (pictureUrl) {
+      enlargedImg.src = pictureUrl;
+      enlargedImg.onload = function () {
+        enlargedImg.classList.remove("opacity-0");
+        viewerActions.classList.remove("opacity-50", "pointer-events-none");
+        enlargedImg.classList.remove("hidden");
+      };
+      enlargedImg.onerror = function () {
+        enlargedImg.classList.add("hidden");
+        viewerActions.classList.remove("opacity-50", "pointer-events-none");
+        showError("Failed to load image");
+      };
+    } else {
+      enlargedImg.classList.add("hidden");
+      viewerActions.classList.remove("opacity-50", "pointer-events-none");
+    }
+
+    // Set leader info
+    leaderNameEl.textContent = leaderName;
+    leaderZoneEl.textContent = leaderZone;
+
+    // Show the modal
+    document.getElementById("pictureViewerModal").classList.remove("hidden");
+  }
+
+  // Hide picture viewer
+  function hidePictureViewer() {
+    document.getElementById("pictureViewerModal").classList.add("hidden");
+    currentViewerLeaderId = null;
+    currentViewerLeaderName = null;
+    currentViewerLeaderZone = null;
+  }
+
+  // Download profile picture
+  function downloadProfilePicture() {
+    const img = document.getElementById("enlargedProfilePicture");
+    if (img.src && !img.classList.contains("hidden")) {
+      const link = document.createElement("a");
+      link.href = img.src;
+      link.download = `profile_${currentViewerLeaderName.replace(
+        /\s+/g,
+        "_"
+      )}.jpg`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      showSuccess("Profile picture download started!");
+    } else {
+      showError("No profile picture to download");
+    }
+  }
+
+  // Show upload modal from viewer
+  function showUploadPictureModalFromViewer() {
+    hidePictureViewer();
+    if (currentViewerLeaderId) {
+      showUploadPictureModal(currentViewerLeaderId);
+    }
+  }
+
+  // Remove picture from viewer
+  async function removeProfilePictureFromViewer() {
+    if (!currentViewerLeaderId) return;
+
+    if (!confirm("Remove this profile picture?")) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `/api/leader/${currentViewerLeaderId}/remove-picture`,
+        {
+          method: "POST",
+        }
+      );
+
+      const result = await response.json();
+
+      if (result.success) {
+        showSuccess("Profile picture removed!");
+        hidePictureViewer();
+        loadLeaders(); // Refresh the list
+      } else {
+        showError(result.message);
+      }
+    } catch (error) {
+      console.error("Error removing picture:", error);
+      showError("Error removing picture");
+    }
+  }
+
   // Handle picture form submission
   document
     .getElementById("pictureForm")
@@ -827,15 +1029,218 @@
   document
     .getElementById("pictureModal")
     .addEventListener("click", function (e) {
-      if (e.target === document.getElementById("pictureModal")) {
+      if (e.target === this) {
         hidePictureModal();
       }
     });
+
+  // Close viewer when clicking outside
+  document
+    .getElementById("pictureViewerModal")
+    .addEventListener("click", function (e) {
+      if (e.target === this) {
+        hidePictureViewer();
+      }
+    });
+
+  // Keyboard shortcuts for modal
+  document.addEventListener("keydown", function (e) {
+    const viewerModal = document.getElementById("pictureViewerModal");
+
+    if (!viewerModal.classList.contains("hidden")) {
+      // Escape key to close
+      if (e.key === "Escape") {
+        hidePictureViewer();
+      }
+    }
+  });
 </script>
 
 <style>
   .max-h-90vh {
     max-height: 90vh;
+  }
+
+  /* Animation for modal */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slideIn {
+    from {
+      transform: translateY(-20px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  #pictureViewerModal > div {
+    animation: slideIn 0.3s ease-out;
+  }
+
+  #pictureViewerModal {
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  /* Hover effects for profile pictures */
+  img[class*="rounded-full"] {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  img[class*="rounded-full"]:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  /* Loading state for image */
+  #enlargedProfilePicture {
+    min-height: 200px;
+    min-width: 200px;
+    background: linear-gradient(
+      45deg,
+      #f3f4f6 25%,
+      #e5e7eb 25%,
+      #e5e7eb 50%,
+      #f3f4f6 50%,
+      #f3f4f6 75%,
+      #e5e7eb 75%
+    );
+    background-size: 40px 40px;
+    transition: opacity 0.3s ease;
+  }
+
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+    #pictureViewerModal > div {
+      max-width: 95%;
+      margin: 1rem;
+    }
+
+    #viewerActions {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    #viewerActions button {
+      width: 100%;
+    }
+    /* Update button colors in leaders_management.html */
+    button.bg-blue-600 {
+      background-color: #0d9488;
+    }
+    button.bg-blue-600:hover {
+      background-color: #0f766e;
+    }
+
+    button.bg-green-600 {
+      background-color: #059669;
+    }
+    button.bg-green-600:hover {
+      background-color: #047857;
+    }
+
+    button.bg-purple-600 {
+      background-color: #0d9488;
+    }
+    button.bg-purple-600:hover {
+      background-color: #0f766e;
+    }
+
+    button.bg-red-600 {
+      background-color: #dc2626;
+    }
+    button.bg-red-600:hover {
+      background-color: #b91c1c;
+    }
+
+    button.bg-orange-600 {
+      background-color: #ea580c;
+    }
+    button.bg-orange-600:hover {
+      background-color: #c2410c;
+    }
+
+    button.bg-yellow-600 {
+      background-color: #ca8a04;
+    }
+    button.bg-yellow-600:hover {
+      background-color: #a16207;
+    }
+
+    /* Update badges */
+    .bg-green-100 {
+      background-color: #d1fae5;
+    }
+    .text-green-800 {
+      color: #065f46;
+    }
+
+    .bg-red-100 {
+      background-color: #fee2e2;
+    }
+    .text-red-800 {
+      color: #991b1b;
+    }
+
+    /* Update profile picture initials */
+    .bg-blue-100 {
+      background-color: #dbeafe;
+    }
+    .text-blue-600 {
+      color: #2563eb;
+    }
+
+    /* Update table styles */
+    .bg-gray-50 {
+      background-color: #f9fafb;
+    }
+    .text-gray-500 {
+      color: #6b7280;
+    }
+    .text-gray-700 {
+      color: #374151;
+    }
+    .text-gray-800 {
+      color: #1f2937;
+    }
+    .text-gray-900 {
+      color: #111827;
+    }
+
+    /* Update borders */
+    .border-gray-200 {
+      border-color: #e5e7eb;
+    }
+    .border-gray-300 {
+      border-color: #d1d5db;
+    }
+
+    /* Update focus rings */
+    .focus\:ring-blue-500:focus {
+      --tw-ring-color: #0d9488;
+    }
+
+    /* Update card backgrounds */
+    .bg-white {
+      background-color: #ffffff;
+    }
+    .bg-yellow-50 {
+      background-color: #fffbeb;
+    }
+    .border-yellow-200 {
+      border-color: #fde68a;
+    }
+    .text-yellow-800 {
+      color: #92400e;
+    }
   }
 </style>
 {% endblock %}
