@@ -109,19 +109,25 @@ class User(db.Model):
 
 class Branch(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), unique=True, nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(
         db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
     )
 
     zones = db.relationship("Zone", backref="branch", lazy=True)
+    leaders = db.relationship("Leader", backref="branch", lazy=True)
 
 
 class Zone(db.Model):
+    __table_args__ = (
+        db.UniqueConstraint("branch_id", "name", name="uq_zone_branch_name"),
+    )
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
-    branch_id = db.Column(db.Integer, db.ForeignKey("branch.id"))
+    branch_id = db.Column(db.Integer, db.ForeignKey("branch.id"), nullable=False)
+    is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(
         db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
@@ -135,6 +141,7 @@ class Leader(db.Model):
     name = db.Column(db.String(100), nullable=False)
     zone = db.Column(db.String(50), nullable=False)
     zone_id = db.Column(db.Integer, db.ForeignKey("zone.id"))
+    branch_id = db.Column(db.Integer, db.ForeignKey("branch.id"))
     cell_day = db.Column(db.String(20), default="Thursday")
     contact_number = db.Column(db.String(20))
     email = db.Column(db.String(100))
@@ -316,13 +323,15 @@ def _coerce_int_list(values):
 def _ensure_default_branch_data():
     if Branch.query.first():
         return
-    default_branch = Branch(name="Main Branch")
+    default_branch = Branch(name="Main Branch", is_active=True)
     db.session.add(default_branch)
     db.session.flush()
 
     zones = []
     for zone_name in sorted(set(SA_ZONES)):
-        zones.append(Zone(name=zone_name, branch_id=default_branch.id))
+        zones.append(
+            Zone(name=zone_name, branch_id=default_branch.id, is_active=True)
+        )
     db.session.add_all(zones)
     db.session.flush()
 
@@ -330,6 +339,7 @@ def _ensure_default_branch_data():
     for leader in Leader.query.all():
         if leader.zone in zone_by_name:
             leader.zone_id = zone_by_name[leader.zone].id
+            leader.branch_id = default_branch.id
 
     db.session.commit()
 
@@ -1270,10 +1280,10 @@ def stats_overview():
 
 @app.route("/api/zones")
 def get_zones():
-    """Get all available zones"""
+    """Get all available zones (names list for backward compatibility)."""
     _ensure_default_branch_data()
     branch_id = request.args.get("branch_id")
-    zones_query = Zone.query
+    zones_query = Zone.query.filter(Zone.is_active.is_(True))
     if branch_id:
         zones_query = zones_query.filter(Zone.branch_id == branch_id)
     zones = [z.name for z in zones_query.order_by(Zone.name).all()]
@@ -1284,11 +1294,100 @@ def get_zones():
     return jsonify(zones)
 
 
+@app.route("/api/zones/objects")
+def get_zones_objects():
+    """Get all available zones as objects (id, name, branch_id)."""
+    _ensure_default_branch_data()
+    branch_id = request.args.get("branch_id")
+    zones_query = Zone.query.filter(Zone.is_active.is_(True))
+    if branch_id:
+        zones_query = zones_query.filter(Zone.branch_id == branch_id)
+    zones = zones_query.order_by(Zone.name).all()
+    return jsonify([{"id": z.id, "name": z.name, "branch_id": z.branch_id} for z in zones])
+
+
 @app.route("/api/branches")
 def get_branches():
     _ensure_default_branch_data()
-    branches = Branch.query.order_by(Branch.name).all()
+    branches = (
+        Branch.query.filter(Branch.is_active.is_(True))
+        .order_by(Branch.name)
+        .all()
+    )
     return jsonify([{"id": b.id, "name": b.name} for b in branches])
+
+
+@app.route("/api/branches", methods=["POST"])
+@admin_required
+def create_branch():
+    try:
+        data = request.get_json() or {}
+        name = (data.get("name") or "").strip()
+        if not name:
+            return jsonify({"success": False, "message": "Branch name is required."}), 400
+
+        existing = Branch.query.filter(Branch.name == name).first()
+        if existing:
+            return (
+                jsonify({"success": False, "message": "Branch already exists."}),
+                409,
+            )
+
+        branch = Branch(name=name, is_active=True)
+        db.session.add(branch)
+        db.session.commit()
+        return jsonify({"success": True, "branch": {"id": branch.id, "name": branch.name}})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@app.route("/api/zones", methods=["POST"])
+@admin_required
+def create_zone():
+    try:
+        data = request.get_json() or {}
+        name = (data.get("name") or "").strip()
+        branch_id = data.get("branch_id")
+
+        if not name:
+            return jsonify({"success": False, "message": "Zone name is required."}), 400
+        if not branch_id:
+            return (
+                jsonify({"success": False, "message": "branch_id is required."}),
+                400,
+            )
+
+        branch = Branch.query.get(branch_id)
+        if not branch:
+            return jsonify({"success": False, "message": "Branch not found."}), 404
+
+        existing = Zone.query.filter(
+            Zone.branch_id == branch_id, Zone.name == name
+        ).first()
+        if existing:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "message": "Zone already exists for this branch.",
+                    }
+                ),
+                409,
+            )
+
+        zone = Zone(name=name, branch_id=branch_id, is_active=True)
+        db.session.add(zone)
+        db.session.commit()
+        return jsonify(
+            {
+                "success": True,
+                "zone": {"id": zone.id, "name": zone.name, "branch_id": zone.branch_id},
+            }
+        )
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "message": str(e)}), 500
 
 
 @app.route("/api/leader/<int:leader_id>/delete", methods=["DELETE"])
