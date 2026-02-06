@@ -628,6 +628,56 @@
   background-color: var(--color-gray-50);
 }
 
+.table-striped tbody tr:nth-child(even) {
+  background-color: rgba(148, 163, 184, 0.08);
+}
+
+.recent-submissions-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.recent-submissions-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.recent-submissions-filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.empty-state {
+  padding: 32px 24px;
+  margin-top: 16px;
+}
+
+@media (max-width: 700px) {
+  .recent-submissions-header {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .recent-submissions-actions {
+    width: 100%;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .recent-submissions-filters {
+    justify-content: center;
+  }
+}
+
 /* Badge Styles */
 .badge-success {
   background-color: #d1fae5;
