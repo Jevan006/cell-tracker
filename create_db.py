@@ -1,10 +1,13 @@
-from app import app, db
+"""Helper script for initializing the database via migrations."""
+import os
 
-print("Creating database tables...")
+print("Initializing database with Flask-Migrate...")
 
-with app.app_context():
-    # This will create all tables
-    db.create_all()
-    print("✅ Database tables created successfully!")
-    print("\nNow start Flask with: python app.py")
-    print("Then visit: http://127.0.0.1:5000/seed-database")
+# Set FLASK_APP if not already set
+os.environ.setdefault("FLASK_APP", "app.py")
+
+print("Run these commands:")
+print("  flask db init    # first time only")
+print("  flask db migrate -m \"initial\"")
+print("  flask db upgrade")
+print("\nThen start the app with: python app.py")

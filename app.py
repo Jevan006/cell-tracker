@@ -2,7 +2,8 @@ import csv
 import io
 import json
 import os
-from datetime import datetime, timedelta
+import click
+from datetime import datetime, timedelta, date
 
 from dotenv import load_dotenv
 from flask import (
@@ -16,15 +17,21 @@ from flask import (
     url_for,
 )
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import inspect
+from flask_migrate import Migrate
+from sqlalchemy import inspect, text
 from werkzeug.security import check_password_hash, generate_password_hash
 
 # Load environment variables
 load_dotenv()
 
-app = Flask(__name__)
+app = Flask(__name__, instance_relative_config=True)
+os.makedirs(app.instance_path, exist_ok=True)
+
+# Database configuration
+_default_sqlite_path = os.path.join(app.instance_path, "cell_tracker.db")
+_default_sqlite_uri = "sqlite:///" + _default_sqlite_path.replace("\\", "/")
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
-    "DATABASE_URL", "sqlite:///cell_tracker.db"
+    "DATABASE_URL", _default_sqlite_uri
 )
 if app.config["SQLALCHEMY_DATABASE_URI"].startswith("postgres://"):
     app.config["SQLALCHEMY_DATABASE_URI"] = app.config[
@@ -45,6 +52,7 @@ app.config["STATIC_UPLOAD_FOLDER"] = "uploads/profile_pictures"
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 
 
 # File upload helper functions
@@ -80,10 +88,53 @@ def delete_profile_picture(filename):
 
 
 # Database Models with profile pictures
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False, index=True)
+    password_hash = db.Column(db.String(255), nullable=False)
+    role = db.Column(db.String(20), default="user", nullable=False)
+    leader_id = db.Column(db.Integer, db.ForeignKey("leader.id"))
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+
+class Branch(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), unique=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    zones = db.relationship("Zone", backref="branch", lazy=True)
+
+
+class Zone(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), unique=True, nullable=False)
+    branch_id = db.Column(db.Integer, db.ForeignKey("branch.id"))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    leaders = db.relationship("Leader", backref="zone_ref", lazy=True)
+
+
 class Leader(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     zone = db.Column(db.String(50), nullable=False)
+    zone_id = db.Column(db.Integer, db.ForeignKey("zone.id"))
     cell_day = db.Column(db.String(20), default="Thursday")
     contact_number = db.Column(db.String(20))
     email = db.Column(db.String(100))
@@ -96,6 +147,7 @@ class Leader(db.Model):
     )
 
     service_records = db.relationship("ServiceRecord", backref="leader", lazy=True)
+    users = db.relationship("User", backref="leader", lazy=True)
 
     def __init__(
         self,
@@ -131,10 +183,20 @@ class Leader(db.Model):
 
 
 class ServiceRecord(db.Model):
+    __table_args__ = (
+        db.UniqueConstraint(
+            "leader_id",
+            "service_type",
+            "service_date",
+            name="uq_service_record_leader_type_date",
+        ),
+    )
     id = db.Column(db.Integer, primary_key=True)
     leader_id = db.Column(db.Integer, db.ForeignKey("leader.id"), nullable=False)
     service_type = db.Column(db.String(20), nullable=False)
     service_date = db.Column(db.Date, nullable=False)
+    is_cancelled = db.Column(db.Boolean, default=False)
+    cancel_reason = db.Column(db.Text)
 
     sunday_attendance = db.Column(db.Integer, default=0)
     sunday_visitors = db.Column(db.Integer, default=0)
@@ -159,12 +221,16 @@ class ServiceRecord(db.Model):
         cell_offering=0.0,
         cell_decisions=0,
         notes="",
+        is_cancelled=False,
+        cancel_reason=None,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.leader_id = leader_id
         self.service_type = service_type
         self.service_date = service_date
+        self.is_cancelled = is_cancelled
+        self.cancel_reason = cancel_reason
         self.sunday_attendance = sunday_attendance
         self.sunday_visitors = sunday_visitors
         self.cell_attendance = cell_attendance
@@ -173,10 +239,6 @@ class ServiceRecord(db.Model):
         self.cell_decisions = cell_decisions
         self.notes = notes
 
-
-# Create tables
-with app.app_context():
-    db.create_all()
 
 
 # Authentication helper functions
@@ -193,9 +255,83 @@ def login_required(f):
     return decorated_function
 
 
+def admin_required(f):
+    """Decorator to protect routes that require admin role"""
+    from functools import wraps
+
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get("logged_in"):
+            return redirect(url_for("login", next=request.url))
+        if session.get("role") != "admin":
+            return jsonify({"success": False, "message": "Admin access required"}), 403
+        return f(*args, **kwargs)
+
+    return decorated_function
+
+
 def is_authenticated():
     """Check if user is logged in"""
     return session.get("logged_in", False)
+
+
+def get_current_user():
+    user_id = session.get("user_id")
+    if not user_id:
+        return None
+    return User.query.get(user_id)
+
+
+def _parse_list_param(args, primary_key, fallback_key=None):
+    values = []
+    if primary_key in args:
+        values = args.getlist(primary_key)
+    elif fallback_key and fallback_key in args:
+        values = args.getlist(fallback_key)
+
+    if not values:
+        return []
+
+    split_values = []
+    for val in values:
+        if val is None:
+            continue
+        for chunk in str(val).split(","):
+            chunk = chunk.strip()
+            if chunk:
+                split_values.append(chunk)
+    return split_values
+
+
+def _coerce_int_list(values):
+    ints = []
+    for val in values:
+        try:
+            ints.append(int(val))
+        except (TypeError, ValueError):
+            continue
+    return ints
+
+
+def _ensure_default_branch_data():
+    if Branch.query.first():
+        return
+    default_branch = Branch(name="Main Branch")
+    db.session.add(default_branch)
+    db.session.flush()
+
+    zones = []
+    for zone_name in sorted(set(SA_ZONES)):
+        zones.append(Zone(name=zone_name, branch_id=default_branch.id))
+    db.session.add_all(zones)
+    db.session.flush()
+
+    zone_by_name = {z.name: z for z in zones}
+    for leader in Leader.query.all():
+        if leader.zone in zone_by_name:
+            leader.zone_id = zone_by_name[leader.zone].id
+
+    db.session.commit()
 
 
 # Sample South African zones
@@ -216,12 +352,6 @@ def dashboard():
     return render_template("dashboard.html")
 
 
-@app.route("/system-status")
-@login_required
-def system_status():
-    return render_template("system_status.html")
-
-
 # Authentication routes
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -231,17 +361,20 @@ def login():
         return redirect(next_page)
 
     if request.method == "POST":
-        password = request.form.get("password")
-        admin_password = os.environ.get("ADMIN_PASSWORD", "church123")
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
 
-        if password == admin_password:
+        user = User.query.filter_by(username=username, is_active=True).first()
+        if user and user.check_password(password):
             session["logged_in"] = True
             session["login_time"] = datetime.utcnow().isoformat()
+            session["user_id"] = user.id
+            session["role"] = user.role
 
             next_page = request.args.get("next", url_for("enter_totals"))
             return redirect(next_page)
         else:
-            return render_template("login.html", error="Invalid password")
+            return render_template("login.html", error="Invalid username or password")
 
     return render_template("login.html")
 
@@ -260,7 +393,7 @@ def enter_totals():
 
 
 @app.route("/leaders-management")
-@login_required
+@admin_required
 def leaders_management():
     return render_template("leaders_management.html")
 
@@ -272,18 +405,23 @@ def leaders_management():
 @app.route("/api/search-leaders")
 def search_leaders():
     query = request.args.get("q", "").lower()
+    zone_filter = request.args.get("zone", "")
+    current_user = get_current_user()
 
     if query:
-        leaders = (
-            Leader.query.filter(
-                (Leader.name.ilike(f"%{query}%")) | (Leader.zone.ilike(f"%{query}%"))
-            )
-            .filter_by(is_active=True)
-            .limit(10)
-            .all()
-        )
+        leaders_query = Leader.query.filter(
+            (Leader.name.ilike(f"%{query}%")) | (Leader.zone.ilike(f"%{query}%"))
+        ).filter_by(is_active=True)
     else:
-        leaders = Leader.query.filter_by(is_active=True).limit(5).all()
+        leaders_query = Leader.query.filter_by(is_active=True)
+
+    if zone_filter:
+        leaders_query = leaders_query.filter(Leader.zone == zone_filter)
+
+    if current_user and current_user.role != "admin":
+        leaders_query = leaders_query.filter(Leader.id == current_user.leader_id)
+
+    leaders = leaders_query.limit(10 if query else 5).all()
 
     leaders_data = [
         {
@@ -306,8 +444,11 @@ def search_leaders():
 @app.route("/api/analytics/overview")
 def analytics_overview():
     period = request.args.get("period", "week")
-    zone_filter = request.args.get("zone", "")
-    leader_id = request.args.get("leader_id", "")
+    zone_filters = _parse_list_param(request.args, "zones", "zone")
+    leader_ids = _coerce_int_list(
+        _parse_list_param(request.args, "leader_ids", "leader_id")
+    )
+    service_type_filter = request.args.get("service_type", "combined")
 
     # Calculate date range
     end_date = datetime.now().date()
@@ -319,15 +460,23 @@ def analytics_overview():
         start_date = end_date - timedelta(days=365)
 
     # Build query
-    query = ServiceRecord.query.join(Leader).filter(
-        ServiceRecord.service_date >= start_date, ServiceRecord.service_date <= end_date
+    query = (
+        ServiceRecord.query.join(Leader)
+        .filter(
+            ServiceRecord.service_date >= start_date,
+            ServiceRecord.service_date <= end_date,
+        )
+        .filter(ServiceRecord.is_cancelled == False)
     )
 
-    if zone_filter:
-        query = query.filter(Leader.zone == zone_filter)
+    if zone_filters:
+        query = query.filter(Leader.zone.in_(zone_filters))
 
-    if leader_id:
-        query = query.filter(ServiceRecord.leader_id == leader_id)
+    if service_type_filter in ("sunday", "cell"):
+        query = query.filter(ServiceRecord.service_type == service_type_filter)
+
+    if leader_ids:
+        query = query.filter(ServiceRecord.leader_id.in_(leader_ids))
 
     records = query.all()
 
@@ -431,7 +580,11 @@ def analytics_overview():
 @app.route("/api/analytics/trends")
 def analytics_trends():
     period = request.args.get("period", "week")
-    zone_filter = request.args.get("zone", "")
+    zone_filters = _parse_list_param(request.args, "zones", "zone")
+    leader_ids = _coerce_int_list(
+        _parse_list_param(request.args, "leader_ids", "leader_id")
+    )
+    service_type_filter = request.args.get("service_type", "combined")
 
     # Calculate date range and group by
     end_date = datetime.now().date()
@@ -446,13 +599,23 @@ def analytics_trends():
         group_format = "%Y-%m"  # Monthly
 
     # This would be more efficient with raw SQL, but for simplicity:
-    query = ServiceRecord.query.join(Leader).filter(
-        ServiceRecord.service_date >= start_date, ServiceRecord.service_date <= end_date
+    query = (
+        ServiceRecord.query.join(Leader)
+        .filter(
+            ServiceRecord.service_date >= start_date,
+            ServiceRecord.service_date <= end_date,
+        )
+        .filter(ServiceRecord.is_cancelled == False)
     )
 
-    if zone_filter:
-        query = query.filter(Leader.zone == zone_filter)
+    if zone_filters:
+        query = query.filter(Leader.zone.in_(zone_filters))
 
+    if service_type_filter in ("sunday", "cell"):
+        query = query.filter(ServiceRecord.service_type == service_type_filter)
+
+    if leader_ids:
+        query = query.filter(ServiceRecord.leader_id.in_(leader_ids))
     records = query.all()
 
     # Group by date
@@ -728,25 +891,93 @@ def restore_data():
 @login_required
 def submit_totals():
     try:
+        current_user = get_current_user()
         data = request.json
 
-        record = ServiceRecord(
-            leader_id=data["leader_id"],
-            service_type=data["service_type"],
-            service_date=datetime.strptime(data["service_date"], "%Y-%m-%d").date(),
-            notes=data.get("notes", ""),
-        )
+        leader_id = data["leader_id"]
+        service_type = data["service_type"]
+        service_date_str = data.get("service_date")
+        if not service_date_str:
+            return jsonify({"success": False, "message": "Service date is required"}), 400
+        service_date = datetime.strptime(service_date_str, "%Y-%m-%d").date()
+        if service_date > date.today():
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "message": "Service date cannot be in the future",
+                    }
+                ),
+                400,
+            )
+        is_cancelled = bool(data.get("is_cancelled", False))
+        cancel_reason = data.get("cancel_reason")
+        if is_cancelled and not cancel_reason:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "message": "Reason for cancellation is required",
+                    }
+                ),
+                400,
+            )
 
-        if data["service_type"] == "sunday":
+        if current_user and current_user.role != "admin":
+            if current_user.leader_id != leader_id:
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "message": "You can only submit totals for your own leader",
+                        }
+                    ),
+                    403,
+                )
+
+        record = ServiceRecord.query.filter_by(
+            leader_id=leader_id,
+            service_type=service_type,
+            service_date=service_date,
+        ).first()
+
+        if record is None:
+            record = ServiceRecord(
+                leader_id=leader_id,
+                service_type=service_type,
+                service_date=service_date,
+                notes=data.get("notes", ""),
+            )
+            db.session.add(record)
+        else:
+            record.notes = data.get("notes", record.notes)
+            record.submitted_at = datetime.utcnow()
+
+        record.is_cancelled = is_cancelled
+        record.cancel_reason = cancel_reason if is_cancelled else None
+
+        if is_cancelled:
+            record.sunday_attendance = 0
+            record.sunday_visitors = 0
+            record.cell_attendance = 0
+            record.cell_visitors = 0
+            record.cell_offering = 0.0
+            record.cell_decisions = 0
+        elif data["service_type"] == "sunday":
             record.sunday_attendance = data["sunday_attendance"]
             record.sunday_visitors = data.get("sunday_visitors", 0)
+            record.cell_attendance = 0
+            record.cell_visitors = 0
+            record.cell_offering = 0.0
+            record.cell_decisions = 0
         else:
             record.cell_attendance = data["cell_attendance"]
             record.cell_visitors = data.get("cell_visitors", 0)
             record.cell_offering = data.get("cell_offering", 0.0)
             record.cell_decisions = data.get("cell_decisions", 0)
+            record.sunday_attendance = 0
+            record.sunday_visitors = 0
 
-        db.session.add(record)
         db.session.commit()
 
         return jsonify(
@@ -765,15 +996,19 @@ def submit_totals():
 
 
 @app.route("/api/leaders")
-@login_required  # Temporarily commented out for debugging
+@login_required
 def get_leaders():
-    zone_filter = request.args.get("zone", "")
+    zone_filters = _parse_list_param(request.args, "zones", "zone")
     active_only = request.args.get("active_only", "true") == "true"
 
     query = Leader.query
 
-    if zone_filter:
-        query = query.filter(Leader.zone == zone_filter)
+    if zone_filters:
+        query = query.filter(Leader.zone.in_(zone_filters))
+
+    current_user = get_current_user()
+    if current_user and current_user.role != "admin":
+        query = query.filter(Leader.id == current_user.leader_id)
 
     if active_only:
         query = query.filter(Leader.is_active == True)
@@ -810,6 +1045,10 @@ def get_leaders():
 @login_required
 def get_leader(leader_id):
     leader = Leader.query.get_or_404(leader_id)
+    current_user = get_current_user()
+    if current_user and current_user.role != "admin":
+        if current_user.leader_id != leader.id:
+            return jsonify({"success": False, "message": "Forbidden"}), 403
 
     leader_data = {
         "id": leader.id,
@@ -829,7 +1068,7 @@ def get_leader(leader_id):
 
 
 @app.route("/api/leader", methods=["POST"])
-@login_required
+@admin_required
 def create_leader():
     try:
         data = request.json
@@ -863,7 +1102,7 @@ def create_leader():
 
 
 @app.route("/api/leader/<int:leader_id>", methods=["PUT"])
-@login_required
+@admin_required
 def update_leader(leader_id):
     try:
         leader = Leader.query.get_or_404(leader_id)
@@ -1001,16 +1240,22 @@ def export_csv():
 
 @app.route("/api/stats/overview")
 def stats_overview():
-    total_submissions = ServiceRecord.query.count()
+    total_submissions = ServiceRecord.query.filter(
+        ServiceRecord.is_cancelled == False
+    ).count()
     total_leaders = Leader.query.filter_by(is_active=True).count()
 
     week_ago = datetime.now().date() - timedelta(days=7)
     recent_submissions = ServiceRecord.query.filter(
-        ServiceRecord.service_date >= week_ago
+        ServiceRecord.service_date >= week_ago,
+        ServiceRecord.is_cancelled == False,
     ).count()
 
     total_offering = (
-        db.session.query(db.func.sum(ServiceRecord.cell_offering)).scalar() or 0
+        db.session.query(db.func.sum(ServiceRecord.cell_offering))
+        .filter(ServiceRecord.is_cancelled == False)
+        .scalar()
+        or 0
     )
 
     return jsonify(
@@ -1026,13 +1271,28 @@ def stats_overview():
 @app.route("/api/zones")
 def get_zones():
     """Get all available zones"""
-    # Use your SA_ZONES list as the source
-    zones = sorted(set(SA_ZONES))
+    _ensure_default_branch_data()
+    branch_id = request.args.get("branch_id")
+    zones_query = Zone.query
+    if branch_id:
+        zones_query = zones_query.filter(Zone.branch_id == branch_id)
+    zones = [z.name for z in zones_query.order_by(Zone.name).all()]
+
+    if not zones:
+        # Fallback to existing list if Zones table is empty
+        zones = sorted(set(SA_ZONES))
     return jsonify(zones)
 
 
+@app.route("/api/branches")
+def get_branches():
+    _ensure_default_branch_data()
+    branches = Branch.query.order_by(Branch.name).all()
+    return jsonify([{"id": b.id, "name": b.name} for b in branches])
+
+
 @app.route("/api/leader/<int:leader_id>/delete", methods=["DELETE"])
-@login_required
+@admin_required
 def delete_leader(leader_id):
     """Delete a leader"""
     try:
@@ -1067,6 +1327,16 @@ def debug_routes():
             }
         )
     return jsonify(routes)
+
+
+@app.route("/healthz")
+def healthz():
+    """Simple health check with DB connectivity."""
+    try:
+        db.session.execute(text("SELECT 1"))
+        return jsonify({"status": "ok"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 # Seed database with enhanced sample data
@@ -1109,6 +1379,46 @@ def seed_database():
         db.session.rollback()
         return f"Error seeding database: {str(e)}"
 
+
+@app.cli.command("create-admin")
+@click.option("--username", required=True, help="Admin username")
+@click.option("--password", required=True, help="Admin password")
+@click.option(
+    "--role",
+    default="admin",
+    type=click.Choice(["admin", "user"]),
+    help="Role for the user (admin or user)",
+)
+def create_admin(username, password, role):
+    """Create or reset a user."""
+    with app.app_context():
+        user = User.query.filter_by(username=username).first()
+        if user is None:
+            user = User(username=username)
+            db.session.add(user)
+        user.set_password(password)
+        user.is_active = True
+        user.role = role
+        db.session.commit()
+        print(f"User {username} ({role}) is ready.")
+
+
+@app.cli.command("bootstrap-admin")
+@click.option("--username", required=True, help="Admin username")
+@click.option("--password", required=True, help="Admin password")
+def bootstrap_admin(username, password):
+    """Create the first admin only if none exists."""
+    with app.app_context():
+        existing_admin = User.query.filter_by(role="admin").first()
+        if existing_admin:
+            print("Admin user already exists. Aborting bootstrap.")
+            return
+        user = User(username=username, role="admin")
+        user.set_password(password)
+        user.is_active = True
+        db.session.add(user)
+        db.session.commit()
+        print(f"Admin user {username} created.")
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

@@ -13,20 +13,33 @@
         Church Cell Tracker
       </h2>
       <p class="mt-2 text-center text-sm text-gray-600">
-        Enter the admin password to continue
+        Sign in with your username and password
       </p>
     </div>
     <form class="mt-8 space-y-6" method="POST">
       <div class="rounded-md shadow-sm -space-y-px">
         <div>
-          <label for="password" class="sr-only">Admin Password</label>
+          <label for="username" class="sr-only">Username</label>
+          <input
+            id="username"
+            name="username"
+            type="text"
+            autocomplete="username"
+            required
+            class="appearance-none rounded-lg relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+            placeholder="Username"
+          />
+        </div>
+        <div class="mt-3">
+          <label for="password" class="sr-only">Password</label>
           <input
             id="password"
             name="password"
             type="password"
+            autocomplete="current-password"
             required
             class="appearance-none rounded-lg relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-            placeholder="Enter admin password"
+            placeholder="Password"
           />
         </div>
       </div>

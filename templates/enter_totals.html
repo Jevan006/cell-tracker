@@ -9,11 +9,6 @@
   </p>
 </div>
 
-<!-- Stats Overview -->
-<div id="statsOverview" class="max-w-2xl mx-auto mb-6 grid grid-cols-3 gap-4">
-  <!-- Stats will be loaded by JavaScript -->
-</div>
-
 <!-- Main Form Card -->
 <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-6 mb-8">
   <form id="totalsForm" class="space-y-6">
@@ -124,6 +119,29 @@
         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
         required
       />
+    </div>
+
+    <!-- Cancellation -->
+    <div class="border border-gray-200 rounded-lg p-4 bg-gray-50">
+      <label class="flex items-center space-x-2 text-sm font-medium text-gray-700">
+        <input type="checkbox" id="isCancelled" />
+        <span>Cancelled</span>
+      </label>
+      <div id="cancelReasonGroup" class="hidden mt-3">
+        <label
+          for="cancelReason"
+          class="block text-sm font-medium text-gray-700 mb-2"
+        >
+          Reason for cancellation *
+        </label>
+        <textarea
+          id="cancelReason"
+          name="cancel_reason"
+          rows="3"
+          placeholder="Briefly explain why this service was cancelled..."
+          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        ></textarea>
+      </div>
     </div>
 
     <!-- Sunday Service Fields -->
@@ -443,45 +461,17 @@
   const exportButton = document.getElementById("exportButton");
   const startDate = document.getElementById("startDate");
   const endDate = document.getElementById("endDate");
-  const statsOverview = document.getElementById("statsOverview");
+  const isCancelled = document.getElementById("isCancelled");
+  const cancelReasonGroup = document.getElementById("cancelReasonGroup");
+  const cancelReason = document.getElementById("cancelReason");
+  const serviceDateInput = document.getElementById("serviceDate");
 
   // Initialize page
   document.addEventListener("DOMContentLoaded", function () {
-    loadStatsOverview();
     loadRecentSubmissions();
     setDefaultDates();
+    setServiceDateLimits();
   });
-
-  // Load stats overview
-  async function loadStatsOverview() {
-    try {
-      const response = await fetch("/api/stats/overview");
-      const stats = await response.json();
-
-      statsOverview.innerHTML = `
-            <div class="bg-blue-50 p-4 rounded-lg text-center">
-                <div class="text-2xl font-bold text-blue-600">${
-                  stats.total_leaders
-                }</div>
-                <div class="text-sm text-blue-800">Active Leaders</div>
-            </div>
-            <div class="bg-green-50 p-4 rounded-lg text-center">
-                <div class="text-2xl font-bold text-green-600">${
-                  stats.total_submissions
-                }</div>
-                <div class="text-sm text-green-800">Total Submissions</div>
-            </div>
-            <div class="bg-purple-50 p-4 rounded-lg text-center">
-                <div class="text-2xl font-bold text-purple-600">R${stats.total_offering.toFixed(
-                  2
-                )}</div>
-                <div class="text-sm text-purple-800">Total Offering</div>
-            </div>
-        `;
-    } catch (error) {
-      console.error("Error loading stats:", error);
-    }
-  }
 
   // Load recent submissions
   async function loadRecentSubmissions() {
@@ -641,6 +631,9 @@
   // Service type toggle
   serviceTypeRadios.forEach((radio) => {
     radio.addEventListener("change", function () {
+      if (isCancelled.checked) {
+        return;
+      }
       if (this.value === "sunday") {
         sundayFields.classList.remove("hidden");
         cellFields.classList.add("hidden");
@@ -677,6 +670,55 @@
     });
   });
 
+  function setServiceDateLimits() {
+    const today = new Date();
+    const isoToday = today.toISOString().split("T")[0];
+    serviceDateInput.max = isoToday;
+    if (!serviceDateInput.value) {
+      serviceDateInput.value = isoToday;
+    }
+  }
+
+  function setCancelledState(cancelled) {
+    if (cancelled) {
+      cancelReasonGroup.classList.remove("hidden");
+      cancelReason.required = true;
+      sundayFields.classList.add("hidden");
+      cellFields.classList.add("hidden");
+      sundayFields
+        .querySelectorAll("input")
+        .forEach((input) => (input.disabled = true));
+      cellFields
+        .querySelectorAll("input")
+        .forEach((input) => (input.disabled = true));
+    } else {
+      cancelReasonGroup.classList.add("hidden");
+      cancelReason.required = false;
+      cancelReason.value = "";
+      sundayFields
+        .querySelectorAll("input")
+        .forEach((input) => (input.disabled = false));
+      cellFields
+        .querySelectorAll("input")
+        .forEach((input) => (input.disabled = false));
+
+      const selectedType = document.querySelector(
+        'input[name="service_type"]:checked'
+      ).value;
+      if (selectedType === "sunday") {
+        sundayFields.classList.remove("hidden");
+        cellFields.classList.add("hidden");
+      } else {
+        sundayFields.classList.add("hidden");
+        cellFields.classList.remove("hidden");
+      }
+    }
+  }
+
+  isCancelled.addEventListener("change", function () {
+    setCancelledState(this.checked);
+  });
+
   // Form submission with API
   totalsForm.addEventListener("submit", async function (e) {
     e.preventDefault();
@@ -689,14 +731,27 @@
     const serviceType = document.querySelector(
       'input[name="service_type"]:checked'
     ).value;
+    const selectedDate = serviceDateInput.value;
+    const todayIso = new Date().toISOString().split("T")[0];
+    if (selectedDate > todayIso) {
+      showError("Service date cannot be in the future");
+      return;
+    }
     const formData = {
       leader_id: parseInt(selectedLeaderId.value),
       service_type: serviceType,
-      service_date: document.getElementById("serviceDate").value,
+      service_date: selectedDate,
       notes: document.getElementById("notes").value,
+      is_cancelled: isCancelled.checked,
+      cancel_reason: cancelReason.value,
     };
 
-    if (serviceType === "sunday") {
+    if (isCancelled.checked) {
+      if (!cancelReason.value.trim()) {
+        showError("Please provide a reason for cancellation");
+        return;
+      }
+    } else if (serviceType === "sunday") {
       const attendance = document.getElementById("sundayAttendance").value;
       if (!attendance) {
         showError("Please enter Sunday attendance");
@@ -738,12 +793,12 @@
       if (result.success) {
         showSuccess();
         // Reload data
-        loadStatsOverview();
         loadRecentSubmissions();
         // Reset form after success
         setTimeout(() => {
           totalsForm.reset();
           clearSelection();
+          setCancelledState(false);
           document.querySelectorAll(".service-type-card").forEach((card) => {
             card.classList.remove(
               "border-blue-500",
@@ -757,7 +812,7 @@
             .closest("label")
             .querySelector(".service-type-card")
             .classList.add("border-blue-500", "bg-blue-100");
-          document.getElementById("serviceDate").valueAsDate = new Date();
+          setServiceDateLimits();
         }, 2000);
       } else {
         showError(result.message || "Error submitting totals");
@@ -806,8 +861,7 @@
     .querySelector(".service-type-card")
     .classList.add("border-blue-500", "bg-blue-100");
 
-  // Set default date to today
-  document.getElementById("serviceDate").valueAsDate = new Date();
+  setCancelledState(false);
 </script>
 
 <style>
