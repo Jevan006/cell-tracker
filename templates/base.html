@@ -98,33 +98,22 @@
       </div>
     </header>
 
-    <!-- Page-specific back navigation (only show on non-home pages) -->
+    <!-- Page Header (non-home pages only) -->
     {% if request.endpoint and request.endpoint != 'home' %}
-    <div class="bg-gradient-to-r from-gray-800 to-gray-700 text-white">
-      <div class="container mx-auto px-4 py-3">
-        <nav class="flex items-center space-x-2 text-sm">
-          <a
-            href="{{ url_for('home') }}"
-            class="hover:text-accent transition-colors"
-          >
-            <i class="fas fa-home"></i>
-            Home
-          </a>
-          <span class="text-gray-400">/</span>
-          {% if request.endpoint == 'dashboard' %}
-          <span class="font-medium">Analytics Dashboard</span>
-          {% elif request.endpoint == 'enter_totals' %}
-          <span class="font-medium">Enter Cell Totals</span>
-          {% elif request.endpoint == 'leaders_management' %}
-          <span class="font-medium">Leaders Management</span>
-          {% elif request.endpoint == 'login' %}
-          <span class="font-medium">Login</span>
-          {% else %}
-          <span class="font-medium"
-            >{{ request.endpoint|replace('_', ' ')|title }}</span
-          >
-          {% endif %}
-        </nav>
+    <div class="page-header">
+      <div class="app-container">
+        {% if request.endpoint == 'dashboard' %}
+        <h1 class="page-title">Analytics Dashboard</h1>
+        {% elif request.endpoint == 'enter_totals' %}
+        <h1 class="page-title">Enter Cell Totals</h1>
+        {% elif request.endpoint == 'leaders_management' %}
+        <h1 class="page-title">Leaders Management</h1>
+        {% elif request.endpoint == 'login' %}
+        <h1 class="page-title">Login</h1>
+        {% else %}
+        <h1 class="page-title">{{ request.endpoint|replace('_', ' ')|title }}</h1>
+        {% endif %}
+        <p class="page-subtitle"></p>
       </div>
     </div>
     {% endif %}

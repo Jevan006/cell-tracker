@@ -49,6 +49,38 @@
   padding: 34px 24px 72px;
 }
 
+.page-header {
+  background: #111827;
+  color: #f8fafc;
+  padding: 28px 0 20px;
+  box-shadow: 0 12px 30px rgba(5, 10, 22, 0.2);
+}
+
+.page-title {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.page-subtitle {
+  margin-top: 6px;
+  color: var(--color-gray-300);
+  font-size: 1rem;
+  min-height: 1rem;
+}
+
+.page-section {
+  margin: 28px 0;
+}
+
+.card-section {
+  background: #fff;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  padding: 24px;
+}
+
 .app-navbar {
   background: linear-gradient(90deg, #1a2537 0%, #1f2d44 100%);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);

@@ -8,7 +8,8 @@
 </div>
 
 <!-- Filters Card -->
-<div class="bg-white rounded-lg shadow-md p-6 mb-6">
+<div class="page-section">
+  <div class="card-section">
     <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
         <!-- Branch Filter (optional) -->
         <div id="branchFilterWrap">
@@ -67,16 +68,24 @@
         </div>
     </div>
 </div>
+  </div>
+</div>
 
 <!-- Stats Overview -->
-<div id="statsOverview" class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
+<div class="page-section">
+  <div
+    id="statsOverview"
+    class="grid grid-cols-2 md:grid-cols-4 gap-6"
+  >
     <!-- Stats will be loaded by JavaScript -->
+  </div>
 </div>
 
 <!-- Charts Section -->
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+<div class="page-section">
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
     <!-- Attendance Trends Chart -->
-    <div class="bg-white rounded-lg shadow-md p-6">
+    <div class="card-section">
         <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg font-semibold text-gray-800">Attendance Trends</h3>
             <span class="text-xs text-gray-500">Click chart to enlarge</span>
@@ -87,16 +96,19 @@
     </div>
 
     <!-- Service Type Distribution -->
-    <div class="bg-white rounded-lg shadow-md p-6">
+    <div class="card-section">
         <h3 class="text-lg font-semibold text-gray-800 mb-4">Service Distribution</h3>
         <div class="h-64">
             <canvas id="serviceTypeChart"></canvas>
         </div>
     </div>
 </div>
+  </div>
+</div>
 
 <!-- Zone Performance -->
-<div class="bg-white rounded-lg shadow-md p-6 mb-6">
+<div class="page-section">
+  <div class="card-section">
     <h3 class="text-lg font-semibold text-gray-800 mb-4">Zone Performance</h3>
     <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
@@ -116,9 +128,12 @@
         </table>
     </div>
 </div>
+  </div>
+</div>
 
 <!-- Leader Performance -->
-<div class="bg-white rounded-lg shadow-md p-6">
+<div class="page-section">
+  <div class="card-section">
     <h3 class="text-lg font-semibold text-gray-800 mb-4">Leader Performance</h3>
     <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
@@ -146,6 +161,8 @@
         <i class="fas fa-spinner fa-spin text-blue-600 mr-3"></i>
         <span>Loading analytics data...</span>
     </div>
+</div>
+  </div>
 </div>
 
 <!-- Attendance Chart Modal -->
