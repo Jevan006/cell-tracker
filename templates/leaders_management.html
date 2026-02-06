@@ -12,14 +12,14 @@
   <div class="flex flex-wrap gap-3">
     <button
       onclick="showAddLeaderForm()"
-      class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+      class="btn-solid flex items-center"
     >
       <i class="fas fa-plus mr-2"></i>
       Add New Leader
     </button>
     <button
       onclick="loadLeaders()"
-      class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center"
+      class="btn-outline flex items-center"
     >
       <i class="fas fa-refresh mr-2"></i>
       Refresh
@@ -31,7 +31,7 @@
     <select
       id="zoneFilter"
       onchange="loadLeaders()"
-      class="px-4 py-2 border border-gray-300 rounded-lg"
+      class="input-field"
     >
       <option value="">All Zones</option>
       <!-- Zones will be populated by JavaScript -->
@@ -41,12 +41,12 @@
         type="text"
         id="leaderSearch"
         placeholder="Search by name or zone..."
-        class="px-4 py-2 border border-gray-300 rounded-lg w-64"
+        class="input-field w-64"
       />
       <button
         id="searchButton"
         type="button"
-        class="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors flex items-center"
+        class="btn-solid flex items-center"
       >
         <i class="fas fa-search mr-2"></i>
         Search
@@ -54,7 +54,7 @@
       <button
         id="clearSearchButton"
         type="button"
-        class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center"
+        class="btn-outline flex items-center"
       >
         Clear
       </button>
@@ -67,7 +67,7 @@
   <div class="card-section">
   <div class="overflow-x-auto">
     <table class="min-w-full divide-y divide-gray-200">
-      <thead class="bg-gray-50">
+      <thead class="table-header">
         <tr>
           <th
             class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"
@@ -133,7 +133,7 @@
             type="text"
             id="leaderName"
             required
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 input-field"
           />
         </div>
 
@@ -144,7 +144,7 @@
           <select
             id="leaderZone"
             required
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 input-field"
           >
             <option value="">Select Zone</option>
             <!-- Zones will be populated by JavaScript -->
@@ -157,7 +157,7 @@
           >
           <select
             id="leaderCellDay"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 input-field"
           >
             <option value="Monday">Monday</option>
             <option value="Tuesday">Tuesday</option>
@@ -174,7 +174,7 @@
           <input
             type="tel"
             id="leaderContact"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 input-field"
             placeholder="+27 XXX XXX XXXX"
           />
         </div>
@@ -186,7 +186,7 @@
           <input
             type="email"
             id="leaderEmail"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 input-field"
             placeholder="leader@church.org.za"
           />
         </div>
@@ -198,7 +198,7 @@
           <textarea
             id="leaderAddress"
             rows="3"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 input-field"
             placeholder="Full physical address"
           ></textarea>
         </div>
@@ -219,13 +219,13 @@
           <button
             type="button"
             onclick="hideLeaderModal()"
-            class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            class="flex-1 btn-outline"
           >
             Cancel
           </button>
           <button
             type="submit"
-            class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            class="flex-1 btn-solid"
           >
             Save Leader
           </button>
@@ -290,13 +290,13 @@
           <button
             type="button"
             onclick="hidePictureModal()"
-            class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+            class="flex-1 btn-outline"
           >
             Cancel
           </button>
           <button
             type="submit"
-            class="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+            class="flex-1 btn-solid"
           >
             Upload Picture
           </button>
@@ -350,21 +350,21 @@
       <div class="mt-6 flex space-x-4" id="viewerActions">
         <button
           onclick="downloadProfilePicture()"
-          class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center"
+          class="btn-solid flex items-center"
         >
           <i class="fas fa-download mr-2"></i>
           Download
         </button>
         <button
           onclick="showUploadPictureModalFromViewer()"
-          class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center"
+          class="btn-outline flex items-center"
         >
           <i class="fas fa-camera mr-2"></i>
           Change Picture
         </button>
         <button
           onclick="removeProfilePictureFromViewer()"
-          class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center"
+          class="btn-outline flex items-center"
         >
           <i class="fas fa-trash mr-2"></i>
           Remove
@@ -389,7 +389,7 @@
       <p class="text-sm text-yellow-600 mb-3">Download all data as JSON file</p>
       <a
         href="/api/backup-data"
-        class="inline-flex items-center px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
+        class="btn-solid inline-flex items-center"
       >
         <i class="fas fa-download mr-2"></i>
         Download Backup
@@ -409,7 +409,7 @@
         />
         <button
           type="submit"
-          class="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+          class="btn-solid inline-flex items-center"
         >
           <i class="fas fa-upload mr-2"></i>
           Restore Backup
@@ -551,7 +551,7 @@
       leadersBody.innerHTML = leaders
         .map(
           (leader) => `
-              <tr class="hover:bg-gray-50 ${
+              <tr class="table-row hover:bg-gray-50 ${
                 leader.is_active ? "" : "bg-gray-100"
               }">
                   <td class="px-4 py-3">

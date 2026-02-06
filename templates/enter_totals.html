@@ -26,7 +26,7 @@
           type="text"
           id="leaderSearch"
           placeholder="Search leaders by name or zone..."
-          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 input-field"
         />
         <div class="absolute right-3 top-2">
           <i class="fas fa-search text-gray-400"></i>
@@ -117,7 +117,7 @@
         type="date"
         id="serviceDate"
         name="service_date"
-        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 input-field"
         required
       />
     </div>
@@ -140,7 +140,7 @@
           name="cancel_reason"
           rows="3"
           placeholder="Briefly explain why this service was cancelled..."
-          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 input-field"
         ></textarea>
       </div>
     </div>
@@ -167,7 +167,7 @@
           min="1"
           max="500"
           placeholder="Enter total number of attendees"
-          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 input-field"
         />
       </div>
 
@@ -186,7 +186,7 @@
           min="0"
           max="500"
           placeholder="Enter number of visitors"
-          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 input-field"
         />
       </div>
     </div>
@@ -206,15 +206,15 @@
         >
           Total Attendance *
         </label>
-        <input
-          type="number"
-          id="cellAttendance"
-          name="cell_attendance"
+          <input
+            type="number"
+            id="cellAttendance"
+            name="cell_attendance"
           min="1"
           max="100"
           placeholder="Enter total number of attendees"
-          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-        />
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 input-field"
+          />
       </div>
 
       <!-- Total Visitors -->
@@ -225,15 +225,15 @@
         >
           Total Visitors
         </label>
-        <input
-          type="number"
-          id="cellVisitors"
-          name="cell_visitors"
+          <input
+            type="number"
+            id="cellVisitors"
+            name="cell_visitors"
           min="0"
           max="100"
           placeholder="Enter number of visitors"
-          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-        />
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 input-field"
+          />
       </div>
 
       <!-- Total Offering -->
@@ -257,7 +257,7 @@
             min="0"
             step="0.01"
             placeholder="0.00"
-            class="w-full pl-8 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+            class="w-full pl-8 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 input-field"
           />
         </div>
       </div>
@@ -277,7 +277,7 @@
           min="0"
           max="50"
           placeholder="Enter number of salvation decisions"
-          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 input-field"
         />
       </div>
     </div>
@@ -292,7 +292,7 @@
         name="notes"
         rows="3"
         placeholder="Any additional comments about the service..."
-        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 input-field"
       ></textarea>
     </div>
 
@@ -301,14 +301,14 @@
       <button
         type="button"
         onclick="window.location.href='/'"
-        class="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+        class="flex-1 btn-outline"
       >
         Cancel
       </button>
       <button
         type="submit"
         id="submitButton"
-        class="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
+        class="flex-1 btn-solid flex items-center justify-center"
       >
         <span id="submitText">Submit Totals</span>
         <div id="submitSpinner" class="hidden ml-2">
@@ -331,19 +331,19 @@
         <input
           type="date"
           id="startDate"
-          class="px-3 py-1 border border-gray-300 rounded text-sm"
+          class="px-3 py-1 border border-gray-300 rounded text-sm input-field"
         />
         <span class="text-gray-500">to</span>
         <input
           type="date"
           id="endDate"
-          class="px-3 py-1 border border-gray-300 rounded text-sm"
+          class="px-3 py-1 border border-gray-300 rounded text-sm input-field"
         />
       </div>
       <!-- Export Button -->
       <button
         id="exportButton"
-        class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center text-sm"
+        class="btn-solid flex items-center text-sm"
       >
         <i class="fas fa-download mr-2"></i>
         Export CSV
@@ -351,7 +351,7 @@
       <!-- Refresh Button -->
       <button
         onclick="loadRecentSubmissions()"
-        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center text-sm"
+        class="btn-outline flex items-center text-sm"
       >
         <i class="fas fa-refresh mr-2"></i>
         Refresh
@@ -362,7 +362,7 @@
   <!-- Submissions Table -->
   <div id="submissionsTable" class="overflow-x-auto">
     <table class="min-w-full divide-y divide-gray-200">
-      <thead class="bg-gray-50">
+      <thead class="table-header">
         <tr>
           <th
             class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
@@ -494,7 +494,7 @@
       submissionsBody.innerHTML = submissions
         .map(
           (submission) => `
-            <tr class="hover:bg-gray-50">
+            <tr class="table-row hover:bg-gray-50">
                 <td class="px-4 py-3 whitespace-nowrap">
                     <div class="font-medium text-gray-900">${
                       submission.leader_name
