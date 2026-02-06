@@ -435,6 +435,57 @@
   transform: translateX(4px);
 }
 
+.focus\:ring-accent:focus {
+  --tw-ring-color: var(--color-accent);
+}
+
+.focus\:border-accent:focus {
+  border-color: var(--color-accent);
+}
+
+/* Choice cards */
+.choice-card {
+  padding: 18px;
+  border: 2px solid var(--color-gray-200);
+  border-radius: 16px;
+  width: 100%;
+  text-align: center;
+  transition: all 0.2s ease;
+  background: #fff;
+  color: var(--color-gray-800);
+}
+
+.choice-card i {
+  color: var(--color-primary);
+}
+
+.choice-card:hover {
+  border-color: var(--color-accent-light);
+  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.08);
+}
+
+.choice-card.selected {
+  border-color: var(--color-accent);
+  background: rgba(249, 115, 22, 0.08);
+  color: var(--color-gray-900);
+}
+
+.choice-card--sunday.selected {
+  background: rgba(249, 115, 22, 0.12);
+}
+
+.choice-card--cell.selected {
+  background: rgba(15, 118, 110, 0.12);
+}
+
+.cancel-card {
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-left: 4px solid var(--color-accent);
+  border-radius: 14px;
+  padding: 16px;
+  background: rgba(249, 115, 22, 0.06);
+}
+
 @media (max-width: 900px) {
   .home-hero {
     padding: 70px 20px 90px;
