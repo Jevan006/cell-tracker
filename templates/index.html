@@ -1,133 +1,84 @@
 {% extends "base.html" %} {% block content %}
-<!-- Welcome Header -->
-<div class="text-center mb-12">
-  <div
-    class="inline-block bg-gradient-to-r from-gray-800 to-gray-900 text-white px-8 py-4 rounded-xl shadow-lg mb-4"
-  >
-    <h1 class="text-4xl font-bold mb-2">Church Cell Tracker</h1>
-    <h2 class="text-xl font-semibold text-gray-300">
-      Comprehensive Management System
-    </h2>
+<!-- Hero -->
+<section class="home-hero">
+  <div class="hero-content">
+    <div class="hero-card">
+      <h1>Church Cell Tracker</h1>
+      <p>Comprehensive Management System</p>
+    </div>
+    <div class="hero-accent"></div>
   </div>
-
-  <div class="text-gray-600 mb-6">
-    <p class="text-lg bg-white p-4 rounded-lg shadow-sm inline-block">
-      <i class="fas fa-calendar-alt text-accent mr-2"></i>
-      {{ datetime.now().strftime('%A, %B %d, %Y') }} · Next service at 7:00 PM
-    </p>
-  </div>
-
-  <div
-    class="w-32 h-1 bg-gradient-to-r from-accent to-accent-dark mx-auto mb-8 rounded-full"
-  ></div>
-</div>
+</section>
 
 <!-- Quick Stats -->
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-  <div
-    class="bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-md p-6 text-center border border-gray-200"
-  >
-    <div class="text-3xl font-bold text-gray-800" id="totalLeaders">70</div>
-    <div class="text-gray-600 mt-1">Active Leaders</div>
-    <div class="w-12 h-1 bg-gray-300 mx-auto mt-3 rounded-full"></div>
+<div class="home-stats">
+  <div class="stat-card">
+    <div class="stat-value" id="totalLeaders">70</div>
+    <div class="stat-label">Active Leaders</div>
+    <div class="stat-divider"></div>
   </div>
-  <div
-    class="bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-md p-6 text-center border border-gray-200"
-  >
-    <div class="text-3xl font-bold text-gray-800" id="weeklyAttendance">0</div>
-    <div class="text-gray-600 mt-1">This Week's Attendance</div>
-    <div class="w-12 h-1 bg-gray-300 mx-auto mt-3 rounded-full"></div>
+  <div class="stat-card">
+    <div class="stat-value" id="weeklyAttendance">0</div>
+    <div class="stat-label">This Week's Attendance</div>
+    <div class="stat-divider"></div>
   </div>
-  <div
-    class="bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-md p-6 text-center border border-gray-200"
-  >
-    <div class="text-3xl font-bold text-gray-800" id="totalOffering">R0.00</div>
-    <div class="text-gray-600 mt-1">Total Offering</div>
-    <div class="w-12 h-1 bg-gray-300 mx-auto mt-3 rounded-full"></div>
+  <div class="stat-card">
+    <div class="stat-value" id="totalOffering">R0.00</div>
+    <div class="stat-label">Total Offering</div>
+    <div class="stat-divider"></div>
   </div>
 </div>
 
 <!-- Navigation Cards -->
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+<div class="home-actions">
   <!-- View Dashboard Card -->
-  <a
-    href="{{ url_for('dashboard') }}"
-    class="block bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-md p-6 hover:shadow-xl transition-all cursor-pointer border border-gray-200 transform hover:-translate-y-1 transition-transform group"
-  >
+  <a href="{{ url_for('dashboard') }}" class="action-card">
     <div class="flex items-center mb-4">
-      <div
-        class="w-12 h-12 bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg flex items-center justify-center mr-4 group-hover:from-accent group-hover:to-accent-dark transition-all"
-      >
+      <div class="action-icon">
         <i class="fas fa-chart-bar text-white text-xl"></i>
       </div>
       <div>
-        <h3 class="text-xl font-semibold text-gray-800">Analytics Dashboard</h3>
-        <p class="text-gray-600 text-sm">
-          View comprehensive reports and charts
-        </p>
+        <h3>Analytics Dashboard</h3>
+        <p>View comprehensive reports and charts</p>
       </div>
     </div>
-    <div
-      class="text-gray-700 text-sm font-medium flex items-center group-hover:text-accent transition-colors"
-    >
+    <div class="action-link">
       View analytics
-      <i
-        class="fas fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"
-      ></i>
+      <i class="fas fa-arrow-right"></i>
     </div>
   </a>
 
   <!-- Enter Cell Totals Card -->
-  <a
-    href="{{ url_for('enter_totals') }}"
-    class="block bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-md p-6 hover:shadow-xl transition-all cursor-pointer border border-gray-200 transform hover:-translate-y-1 transition-transform group"
-  >
+  <a href="{{ url_for('enter_totals') }}" class="action-card">
     <div class="flex items-center mb-4">
-      <div
-        class="w-12 h-12 bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg flex items-center justify-center mr-4 group-hover:from-accent group-hover:to-accent-dark transition-all"
-      >
+      <div class="action-icon">
         <i class="fas fa-edit text-white text-xl"></i>
       </div>
       <div>
-        <h3 class="text-xl font-semibold text-gray-800">Enter Cell Totals</h3>
-        <p class="text-gray-600 text-sm">Submit attendance and offering data</p>
+        <h3>Enter Cell Totals</h3>
+        <p>Submit attendance and offering data</p>
       </div>
     </div>
-    <div
-      class="text-gray-700 text-sm font-medium flex items-center group-hover:text-accent transition-colors"
-    >
+    <div class="action-link">
       Submit data
-      <i
-        class="fas fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"
-      ></i>
+      <i class="fas fa-arrow-right"></i>
     </div>
   </a>
 
   <!-- Leaders Overview Card -->
-  <a
-    href="{{ url_for('leaders_management') }}"
-    class="block bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-md p-6 hover:shadow-xl transition-all cursor-pointer border border-gray-200 transform hover:-translate-y-1 transition-transform group"
-  >
+  <a href="{{ url_for('leaders_management') }}" class="action-card">
     <div class="flex items-center mb-4">
-      <div
-        class="w-12 h-12 bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg flex items-center justify-center mr-4 group-hover:from-accent group-hover:to-accent-dark transition-all"
-      >
+      <div class="action-icon">
         <i class="fas fa-users text-white text-xl"></i>
       </div>
       <div>
-        <h3 class="text-xl font-semibold text-gray-800">Leaders Management</h3>
-        <p class="text-gray-600 text-sm">
-          Manage leaders and contact information
-        </p>
+        <h3>Leaders Management</h3>
+        <p>Manage leaders and contact information</p>
       </div>
     </div>
-    <div
-      class="text-gray-700 text-sm font-medium flex items-center group-hover:text-accent transition-colors"
-    >
+    <div class="action-link">
       Manage leaders
-      <i
-        class="fas fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"
-      ></i>
+      <i class="fas fa-arrow-right"></i>
     </div>
   </a>
 </div>
