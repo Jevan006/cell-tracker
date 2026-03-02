@@ -5,7 +5,7 @@
 <!-- Filters Card -->
 <div class="page-section">
   <div class="card-section">
-    <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-6 gap-4 dashboard-filters">
         <!-- Branch Filter (optional) -->
         <div id="branchFilterWrap">
             <label class="block text-sm font-medium text-gray-700 mb-2">Branch</label>
@@ -26,19 +26,31 @@
         <!-- Zone Filter -->
         <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">Zone</label>
-            <select id="zoneFilter" multiple class="input-field">
+            <div class="multi-select">
+                <button type="button" id="zoneToggle" class="input-field multi-select-toggle">
+                    Select zones
+                </button>
+                <div id="zonePanel" class="multi-select-panel hidden"></div>
+            </div>
+            <select id="zoneFilter" multiple class="input-field multi-select-hidden">
                 <!-- Zones will be populated by JavaScript -->
             </select>
-            <p class="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple</p>
+            <p class="text-xs text-gray-500 mt-1">Select multiple</p>
         </div>
 
         <!-- Leader Filter -->
         <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">Leader</label>
-            <select id="leaderFilter" multiple class="input-field">
+            <div class="multi-select">
+                <button type="button" id="leaderToggle" class="input-field multi-select-toggle">
+                    Select leaders
+                </button>
+                <div id="leaderPanel" class="multi-select-panel hidden"></div>
+            </div>
+            <select id="leaderFilter" multiple class="input-field multi-select-hidden">
                 <!-- Leaders will be populated by JavaScript -->
             </select>
-            <p class="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple</p>
+            <p class="text-xs text-gray-500 mt-1">Select multiple</p>
         </div>
 
         <!-- Service Type Filter -->
@@ -78,22 +90,23 @@
 <!-- Charts Section -->
 <div class="page-section">
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-    <!-- Attendance Trends Chart -->
+    <!-- Sunday Service Attendance Chart -->
     <div class="card-section">
         <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-semibold text-gray-800">Attendance Trends</h3>
-            <span class="text-xs text-gray-500">Click chart to enlarge</span>
+            <h3 class="text-lg font-semibold text-gray-800">Sunday Service Attendance</h3>
         </div>
         <div class="h-64">
-            <canvas id="attendanceChart"></canvas>
+            <canvas id="sundayAttendanceChart"></canvas>
         </div>
     </div>
 
-    <!-- Service Type Distribution -->
+    <!-- Cell Meeting Attendance Chart -->
     <div class="card-section">
-        <h3 class="text-lg font-semibold text-gray-800 mb-4">Service Distribution</h3>
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-800">Cell Meeting Attendance</h3>
+        </div>
         <div class="h-64">
-            <canvas id="serviceTypeChart"></canvas>
+            <canvas id="cellAttendanceChart"></canvas>
         </div>
     </div>
   </div>
@@ -156,30 +169,14 @@
     </div>
 </div>
 
-<!-- Attendance Chart Modal -->
-<div id="attendanceModal" class="modal-overlay fixed inset-0 hidden items-center justify-center">
-    <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-4">
-        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-            <h3 class="text-lg font-semibold text-gray-800">Attendance Trends</h3>
-            <button id="closeAttendanceModal" class="text-gray-500 hover:text-gray-800">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div class="p-6">
-            <div class="h-96">
-                <canvas id="attendanceChartModal"></canvas>
-            </div>
-        </div>
-    </div>
-</div>
-
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 // Chart instances
-let attendanceChart = null;
+let sundayAttendanceChart = null;
+let cellAttendanceChart = null;
 let serviceTypeChart = null;
-let attendanceChartModal = null;
-let latestTrendsData = [];
+let latestSundayTrends = [];
+let latestCellTrends = [];
 
 // DOM Elements
 const periodFilter = document.getElementById('periodFilter');
@@ -187,13 +184,15 @@ const branchFilter = document.getElementById('branchFilter');
 const branchFilterWrap = document.getElementById('branchFilterWrap');
 const zoneFilter = document.getElementById('zoneFilter');
 const leaderFilter = document.getElementById('leaderFilter');
+const zoneToggle = document.getElementById('zoneToggle');
+const zonePanel = document.getElementById('zonePanel');
+const leaderToggle = document.getElementById('leaderToggle');
+const leaderPanel = document.getElementById('leaderPanel');
 const serviceTypeFilter = document.getElementById('serviceTypeFilter');
 const statsOverview = document.getElementById('statsOverview');
 const zoneStatsBody = document.getElementById('zoneStatsBody');
 const leaderStatsBody = document.getElementById('leaderStatsBody');
 const loadingSpinner = document.getElementById('loadingSpinner');
-const attendanceModal = document.getElementById('attendanceModal');
-const closeAttendanceModal = document.getElementById('closeAttendanceModal');
 let allLeaders = [];
 const branchesEnabled = true;
 let branches = [];
@@ -205,6 +204,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!branchesEnabled) {
         branchFilterWrap.classList.add('hidden');
     }
+    setupMultiSelect(zoneToggle, zonePanel);
+    setupMultiSelect(leaderToggle, leaderPanel);
 });
 
 // Load filter options
@@ -231,6 +232,7 @@ async function loadZones() {
     const zonesResponse = await fetch(url);
     const zones = await zonesResponse.json();
     zoneFilter.innerHTML = zones.map(zone => `<option value="${zone}">${zone}</option>`).join('');
+    renderMultiSelect(zoneFilter, zonePanel, zoneToggle, 'Select zones');
 }
 
 async function loadLeaders() {
@@ -258,15 +260,24 @@ async function loadAnalytics() {
         const overviewResponse = await fetch(`/api/analytics/overview?${params}`);
         const overviewData = await overviewResponse.json();
 
-        // Load trends data
-        const trendsResponse = await fetch(`/api/analytics/trends?${params}`);
-        const trendsData = await trendsResponse.json();
+        // Load trends data for sunday and cell
+        const sundayParams = new URLSearchParams(params);
+        sundayParams.set('service_type', 'sunday');
+        const cellParams = new URLSearchParams(params);
+        cellParams.set('service_type', 'cell');
+
+        const [sundayTrendsResponse, cellTrendsResponse] = await Promise.all([
+            fetch(`/api/analytics/trends?${sundayParams}`),
+            fetch(`/api/analytics/trends?${cellParams}`)
+        ]);
+        const sundayTrendsData = await sundayTrendsResponse.json();
+        const cellTrendsData = await cellTrendsResponse.json();
 
         // Update UI
         updateStatsOverview(overviewData);
         updateZoneStats(overviewData.zone_stats);
         updateLeaderStats(overviewData.leader_stats);
-        updateCharts(overviewData, trendsData);
+        updateCharts(overviewData, sundayTrendsData, cellTrendsData);
 
     } catch (error) {
         console.error('Error loading analytics:', error);
@@ -346,18 +357,24 @@ function updateLeaderStats(leaderStats) {
 }
 
 // Update charts
-function updateCharts(overviewData, trendsData) {
-    latestTrendsData = trendsData;
-    updateAttendanceChart(trendsData);
+function updateCharts(overviewData, sundayTrends, cellTrends) {
+    latestSundayTrends = sundayTrends;
+    latestCellTrends = cellTrends;
+    updateAttendanceChart(sundayTrends, 'sunday');
+    updateAttendanceChart(cellTrends, 'cell');
     updateServiceTypeChart(overviewData);
 }
 
-// Update attendance trends chart
-function updateAttendanceChart(trendsData) {
-    const ctx = document.getElementById('attendanceChart').getContext('2d');
+// Update attendance trends chart (per service type)
+function updateAttendanceChart(trendsData, serviceType) {
+    const chartId = serviceType === 'sunday' ? 'sundayAttendanceChart' : 'cellAttendanceChart';
+    const ctx = document.getElementById(chartId).getContext('2d');
 
-    if (attendanceChart) {
-        attendanceChart.destroy();
+    if (serviceType === 'sunday' && sundayAttendanceChart) {
+        sundayAttendanceChart.destroy();
+    }
+    if (serviceType === 'cell' && cellAttendanceChart) {
+        cellAttendanceChart.destroy();
     }
 
     const labels = trendsData.map(item => item.date);
@@ -365,26 +382,19 @@ function updateAttendanceChart(trendsData) {
     const visitorsData = trendsData.map(item => item.visitors);
     const labelStep = getLabelStep(labels.length);
 
-    attendanceChart = new Chart(ctx, {
-        type: 'line',
+    const chart = new Chart(ctx, {
+        type: 'bar',
         data: {
             labels: labels,
             datasets: [
                 {
-                    label: 'Attendance',
+                    label: serviceType === 'sunday' ? 'Sunday Attendance' : 'Cell Attendance',
                     data: attendanceData,
                     borderColor: '#3b82f6',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    tension: 0.4,
-                    fill: true
-                },
-                {
-                    label: 'Visitors',
-                    data: visitorsData,
-                    borderColor: '#10b981',
-                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                    tension: 0.4,
-                    fill: true
+                    backgroundColor: 'rgba(59, 130, 246, 0.6)',
+                    borderRadius: 6,
+                    barThickness: 12,
+                    maxBarThickness: 16
                 }
             ]
         },
@@ -398,6 +408,7 @@ function updateAttendanceChart(trendsData) {
             },
             scales: {
                 x: {
+                    stacked: false,
                     ticks: {
                         callback: function(value, index) {
                             if (labelStep > 1 && index % labelStep !== 0) {
@@ -410,6 +421,7 @@ function updateAttendanceChart(trendsData) {
                     }
                 },
                 y: {
+                    stacked: false,
                     beginAtZero: true,
                     title: {
                         display: true,
@@ -419,11 +431,21 @@ function updateAttendanceChart(trendsData) {
             }
         }
     });
+
+    if (serviceType === 'sunday') {
+        sundayAttendanceChart = chart;
+    } else {
+        cellAttendanceChart = chart;
+    }
 }
 
 // Update service type distribution chart
 function updateServiceTypeChart(overviewData) {
-    const ctx = document.getElementById('serviceTypeChart').getContext('2d');
+    const canvas = document.getElementById('serviceTypeChart');
+    if (!canvas) {
+        return;
+    }
+    const ctx = canvas.getContext('2d');
 
     if (serviceTypeChart) {
         serviceTypeChart.destroy();
@@ -480,82 +502,6 @@ function formatLabel(label) {
     return label;
 }
 
-function openAttendanceModal() {
-    attendanceModal.classList.remove('hidden');
-    attendanceModal.classList.add('flex');
-    renderAttendanceModalChart();
-}
-
-function closeAttendanceModalFn() {
-    attendanceModal.classList.add('hidden');
-    attendanceModal.classList.remove('flex');
-}
-
-function renderAttendanceModalChart() {
-    const ctx = document.getElementById('attendanceChartModal').getContext('2d');
-    if (attendanceChartModal) {
-        attendanceChartModal.destroy();
-    }
-    const labels = latestTrendsData.map(item => item.date);
-    const attendanceData = latestTrendsData.map(item => item.attendance);
-    const visitorsData = latestTrendsData.map(item => item.visitors);
-    const labelStep = getLabelStep(labels.length);
-
-    attendanceChartModal = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [
-                {
-                    label: 'Attendance',
-                    data: attendanceData,
-                    borderColor: '#3b82f6',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    tension: 0.4,
-                    fill: true
-                },
-                {
-                    label: 'Visitors',
-                    data: visitorsData,
-                    borderColor: '#10b981',
-                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                    tension: 0.4,
-                    fill: true
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'top',
-                }
-            },
-            scales: {
-                x: {
-                    ticks: {
-                        callback: function(value, index) {
-                            if (labelStep > 1 && index % labelStep !== 0) {
-                                return '';
-                            }
-                            return formatLabel(labels[index]);
-                        },
-                        maxRotation: 0,
-                        autoSkip: false
-                    }
-                },
-                y: {
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: 'Number of People'
-                    }
-                }
-            }
-        }
-    });
-}
 
 function getSelectedValues(selectEl) {
     return Array.from(selectEl.selectedOptions).map(opt => opt.value);
@@ -576,6 +522,49 @@ function refreshLeaderOptions() {
         if (currentSelected.has(option.value)) {
             option.selected = true;
         }
+    });
+    renderMultiSelect(leaderFilter, leaderPanel, leaderToggle, 'Select leaders');
+}
+
+function renderMultiSelect(selectEl, panelEl, toggleEl, placeholder) {
+    const selectedValues = getSelectedValues(selectEl);
+    const selectedLabels = Array.from(selectEl.selectedOptions).map(opt => opt.textContent);
+    toggleEl.textContent = selectedLabels.length ? selectedLabels.join(', ') : placeholder;
+
+    panelEl.innerHTML = Array.from(selectEl.options)
+        .map(opt => {
+            const checked = selectedValues.includes(opt.value) ? 'checked' : '';
+            return `
+                <label class="multi-select-item">
+                    <input type="checkbox" value="${opt.value}" ${checked} />
+                    <span>${opt.textContent}</span>
+                </label>
+            `;
+        })
+        .join('');
+
+    panelEl.querySelectorAll('input[type="checkbox"]').forEach(input => {
+        input.addEventListener('change', () => {
+            const values = Array.from(panelEl.querySelectorAll('input[type="checkbox"]:checked'))
+                .map(el => el.value);
+            Array.from(selectEl.options).forEach(opt => {
+                opt.selected = values.includes(opt.value);
+            });
+            renderMultiSelect(selectEl, panelEl, toggleEl, placeholder);
+            selectEl.dispatchEvent(new Event('change'));
+        });
+    });
+}
+
+function setupMultiSelect(toggleEl, panelEl) {
+    if (!toggleEl || !panelEl) return;
+    toggleEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        panelEl.classList.toggle('hidden');
+        toggleEl.setAttribute(
+            'aria-expanded',
+            panelEl.classList.contains('hidden') ? 'false' : 'true'
+        );
     });
 }
 
@@ -602,11 +591,13 @@ branchFilter.addEventListener('change', async function() {
     loadAnalytics();
 });
 
-document.getElementById('attendanceChart').addEventListener('click', openAttendanceModal);
-closeAttendanceModal.addEventListener('click', closeAttendanceModalFn);
-attendanceModal.addEventListener('click', function(e) {
-    if (e.target === attendanceModal) {
-        closeAttendanceModalFn();
+
+document.addEventListener('click', function(e) {
+    if (!zonePanel.contains(e.target) && e.target !== zoneToggle) {
+        zonePanel.classList.add('hidden');
+    }
+    if (!leaderPanel.contains(e.target) && e.target !== leaderToggle) {
+        leaderPanel.classList.add('hidden');
     }
 });
 </script>

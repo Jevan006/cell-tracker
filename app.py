@@ -408,6 +408,12 @@ def leaders_management():
     return render_template("leaders_management.html")
 
 
+@app.route("/branches-zones")
+@admin_required
+def branches_zones():
+    return render_template("branches_zones.html")
+
+
 # API Routes
 
 
@@ -416,6 +422,7 @@ def leaders_management():
 def search_leaders():
     query = request.args.get("q", "").lower()
     zone_filter = request.args.get("zone", "")
+    branch_filter = request.args.get("branch_id")
     current_user = get_current_user()
 
     if query:
@@ -427,6 +434,8 @@ def search_leaders():
 
     if zone_filter:
         leaders_query = leaders_query.filter(Leader.zone == zone_filter)
+    if branch_filter:
+        leaders_query = leaders_query.filter(Leader.branch_id == branch_filter)
 
     if current_user and current_user.role != "admin":
         leaders_query = leaders_query.filter(Leader.id == current_user.leader_id)
@@ -437,7 +446,11 @@ def search_leaders():
         {
             "id": leader.id,
             "name": leader.name,
-            "zone": leader.zone,
+            "zone": leader.zone_ref.name if leader.zone_ref else leader.zone,
+            "zone_id": leader.zone_id,
+            "zone_name": leader.zone_ref.name if leader.zone_ref else leader.zone,
+            "branch_id": leader.branch_id,
+            "branch_name": leader.branch.name if leader.branch else None,
             "cell_day": leader.cell_day,
             "contact_number": leader.contact_number,
             "email": leader.email,
@@ -1009,12 +1022,15 @@ def submit_totals():
 @login_required
 def get_leaders():
     zone_filters = _parse_list_param(request.args, "zones", "zone")
+    branch_filter = request.args.get("branch_id")
     active_only = request.args.get("active_only", "true") == "true"
 
     query = Leader.query
 
     if zone_filters:
         query = query.filter(Leader.zone.in_(zone_filters))
+    if branch_filter:
+        query = query.filter(Leader.branch_id == branch_filter)
 
     current_user = get_current_user()
     if current_user and current_user.role != "admin":
@@ -1029,7 +1045,11 @@ def get_leaders():
         {
             "id": leader.id,
             "name": leader.name,
-            "zone": leader.zone,
+            "zone": leader.zone_ref.name if leader.zone_ref else leader.zone,
+            "zone_id": leader.zone_id,
+            "zone_name": leader.zone_ref.name if leader.zone_ref else leader.zone,
+            "branch_id": leader.branch_id,
+            "branch_name": leader.branch.name if leader.branch else None,
             "cell_day": leader.cell_day,
             "contact_number": leader.contact_number,
             "email": leader.email,
@@ -1063,7 +1083,11 @@ def get_leader(leader_id):
     leader_data = {
         "id": leader.id,
         "name": leader.name,
-        "zone": leader.zone,
+        "zone": leader.zone_ref.name if leader.zone_ref else leader.zone,
+        "zone_id": leader.zone_id,
+        "zone_name": leader.zone_ref.name if leader.zone_ref else leader.zone,
+        "branch_id": leader.branch_id,
+        "branch_name": leader.branch.name if leader.branch else None,
         "cell_day": leader.cell_day,
         "contact_number": leader.contact_number,
         "email": leader.email,
@@ -1083,9 +1107,49 @@ def create_leader():
     try:
         data = request.json
 
+        branch_id = data.get("branch_id")
+        zone_id = data.get("zone_id")
+        if not branch_id or not zone_id:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "message": "Branch and zone are required.",
+                    }
+                ),
+                400,
+            )
+
+        branch = Branch.query.filter(
+            Branch.id == branch_id, Branch.is_active.is_(True)
+        ).first()
+        if not branch:
+            return (
+                jsonify({"success": False, "message": "Branch not found."}),
+                404,
+            )
+
+        zone = Zone.query.filter(
+            Zone.id == zone_id,
+            Zone.branch_id == branch_id,
+            Zone.is_active.is_(True),
+        ).first()
+        if not zone:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "message": "Zone not found for this branch.",
+                    }
+                ),
+                404,
+            )
+
         leader = Leader(
             name=data["name"],
-            zone=data["zone"],
+            zone=zone.name,
+            branch_id=branch.id,
+            zone_id=zone.id,
             cell_day=data.get("cell_day", "Thursday"),
             contact_number=data.get("contact_number", ""),
             email=data.get("email", ""),
@@ -1117,9 +1181,50 @@ def update_leader(leader_id):
     try:
         leader = Leader.query.get_or_404(leader_id)
         data = request.json
+        branch_id = data.get("branch_id")
+        zone_id = data.get("zone_id")
+
+        if branch_id or zone_id:
+            if not branch_id or not zone_id:
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "message": "Both branch and zone are required.",
+                        }
+                    ),
+                    400,
+                )
+
+            branch = Branch.query.filter(
+                Branch.id == branch_id, Branch.is_active.is_(True)
+            ).first()
+            if not branch:
+                return (
+                    jsonify({"success": False, "message": "Branch not found."}),
+                    404,
+                )
+
+            zone = Zone.query.filter(
+                Zone.id == zone_id,
+                Zone.branch_id == branch_id,
+                Zone.is_active.is_(True),
+            ).first()
+            if not zone:
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "message": "Zone not found for this branch.",
+                        }
+                    ),
+                    404,
+                )
+            leader.branch_id = branch.id
+            leader.zone_id = zone.id
+            leader.zone = zone.name
 
         leader.name = data["name"]
-        leader.zone = data["zone"]
         leader.cell_day = data.get("cell_day", leader.cell_day)
         leader.contact_number = data.get("contact_number", "")
         leader.email = data.get("email", "")
@@ -1438,40 +1543,119 @@ def healthz():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
-# Seed database with enhanced sample data
-# Seed database with enhanced sample data
+# Seed database with real branch/zone/leader structure (destructive)
+@app.route("/seed-real-data")
 @app.route("/seed-database")
 def seed_database():
+    allow_seed = app.debug or os.environ.get("ALLOW_SEED", "").lower() == "true"
+    if not allow_seed:
+        return "Seeding not allowed. Set ALLOW_SEED=true or run in debug mode.", 403
+
     try:
+        # Wipe existing data (development/testing only)
         db.session.query(ServiceRecord).delete()
         db.session.query(Leader).delete()
+        db.session.query(Zone).delete()
+        db.session.query(Branch).delete()
         db.session.commit()
 
-        leaders = []
-        # Create 30 leaders (10 per zone)
-        for i in range(1, 31):
-            # Distribute evenly among 3 zones
-            zone_index = (i - 1) % 3
-            zone = SA_ZONES[zone_index]
+        branches_data = [
+            "Korle-Bu",
+            "Belhar East",
+            "Symphony",
+            "Delft North",
+            "Delft South",
+            "Outskirts",
+            "Eersteriver",
+            "Blackheath",
+        ]
 
-            # Create leader names like Leader 1, Leader 2, etc.
-            leader = Leader(
-                name=f"Leader {i}",
-                zone=zone,
-                cell_day=CELL_DAYS[i % len(CELL_DAYS)],  # Spread across days
-                contact_number=f"+27 {70 + i % 30:02d} {100 + i % 900:03d} {1000 + i % 9000:04d}",
-                email=f"leader{i}@church.org.za",
-                address=f"{i * 10} Main Street, {zone}, South Africa",
-            )
-            leaders.append(leader)
+        zones_data = {
+            "Blackheath": ["Kuilsriver", "Wesbank"],
+            "Delft North": ["The hague", "Voorbrug", "Roosendal"],
+            "Symphony": ["Symphony1", "Symphony2", "Leiden"],
+            "Delft South": ["Delft South"],
+            "Korle-Bu": ["KB north", "KB South"],
+            "Belhar East": ["Extension", "Pentech"],
+            "Eersteriver": ["Eersteriver"],
+            "Outskirts": ["Tygerberg"],
+        }
+
+        leaders_data = {
+            ("Blackheath", "Kuilsriver"): ["Darren", "Asive"],
+            ("Blackheath", "Wesbank"): ["Jade Erskine", "Walenicia"],
+            ("Delft North", "The hague"): ["Felicia", "Geraldine"],
+            ("Delft North", "Voorbrug"): ["Nicole", "Clinton"],
+            ("Delft North", "Roosendal"): ["Mark", "Zubeira"],
+            ("Symphony", "Symphony1"): ["Berenice", "Elias"],
+            ("Symphony", "Symphony2"): ["Ashwill", "Mandy"],
+            ("Symphony", "Leiden"): ["Richard", "Kelly"],
+            ("Delft South", "Delft South"): ["Pam", "Patricia"],
+            ("Korle-Bu", "KB north"): ["Nancy", "Gershwin"],
+            ("Korle-Bu", "KB South"): ["Micheline", "Daphne"],
+            ("Belhar East", "Extension"): ["Griffin", "Ramone"],
+            ("Belhar East", "Pentech"): ["Shane", "Aiden"],
+            ("Eersteriver", "Eersteriver"): ["Maretha", "Emogan"],
+            ("Outskirts", "Tygerberg"): ["Zeeque", "Sandi"],
+        }
+
+        branches = {}
+        for name in branches_data:
+            branch = Branch(name=name, is_active=True)
+            db.session.add(branch)
+            db.session.flush()
+            branches[name] = branch
+
+        zones = {}
+        for branch_name, zone_list in zones_data.items():
+            branch = branches[branch_name]
+            for zone_name in zone_list:
+                zone = Zone(
+                    name=zone_name, branch_id=branch.id, is_active=True
+                )
+                db.session.add(zone)
+                db.session.flush()
+                zones[(branch_name, zone_name)] = zone
+
+        def _make_contact_number(index):
+            prefix = 71 + (index % 10)
+            middle = 100 + (index * 7 % 900)
+            last = 1000 + (index * 13 % 9000)
+            return f"+27 {prefix:02d} {middle:03d} {last:04d}"
+
+        leaders = []
+        leader_index = 1
+        for (branch_name, zone_name), names in leaders_data.items():
+            zone = zones[(branch_name, zone_name)]
+            branch = branches[branch_name]
+            for full_name in names:
+                parts = full_name.split()
+                first = parts[0]
+                last = parts[1] if len(parts) > 1 else "Doe"
+                email = f"{first}.{last}@church.org.za".lower()
+                leader = Leader(
+                    name=f"{first} {last}",
+                    zone=zone.name,
+                    zone_id=zone.id,
+                    branch_id=branch.id,
+                    cell_day="Thursday",
+                    contact_number=_make_contact_number(leader_index),
+                    email=email,
+                    address=f"10 Main Road, {zone.name}, Cape Town",
+                    profile_picture=None,
+                    is_active=True,
+                )
+                leaders.append(leader)
+                leader_index += 1
 
         db.session.add_all(leaders)
         db.session.commit()
 
         return (
-            f"Successfully added {len(leaders)} leaders across 3 zones to database!<br><br>"
-            + f"Zones: {', '.join(SA_ZONES)}<br>"
-            + f"Leaders per zone: {len(leaders) // len(SA_ZONES)}"
+            "Seed completed successfully.<br><br>"
+            + f"Branches: {len(branches)}<br>"
+            + f"Zones: {len(zones)}<br>"
+            + f"Leaders: {len(leaders)}"
         )
 
     except Exception as e:

@@ -28,6 +28,10 @@
   box-sizing: border-box;
 }
 
+.hidden {
+  display: none !important;
+}
+
 .app-body {
   font-family: "Manrope", sans-serif;
   background-color: var(--color-gray-50);
@@ -660,6 +664,76 @@
   margin-top: 16px;
 }
 
+.multi-select {
+  position: relative;
+}
+
+.multi-select-toggle {
+  text-align: left;
+  padding-right: 36px;
+  position: relative;
+  background: #fff;
+}
+
+.multi-select-toggle::after {
+  content: "▾";
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-gray-500);
+  font-size: 0.9rem;
+}
+
+.multi-select-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  background: #fff;
+  border: 1px solid var(--color-gray-200);
+  border-radius: 12px;
+  box-shadow: var(--shadow-soft);
+  padding: 10px;
+  max-height: 220px;
+  overflow-y: auto;
+  z-index: 20;
+}
+
+.multi-select-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.multi-select-item:hover {
+  background: var(--color-gray-50);
+}
+
+.multi-select-hidden {
+  display: none;
+}
+
+.dashboard-filters {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 1024px) {
+  .dashboard-filters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-filters {
+    grid-template-columns: 1fr;
+  }
+}
 @media (max-width: 700px) {
   .recent-submissions-header {
     flex-direction: column;

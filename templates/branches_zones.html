@@ -1,0 +1,211 @@
+{% extends "base.html" %} {% block content %}
+<div class="page-section">
+  <div class="card-section">
+    <h2 class="section-title mb-4">Manage Branches</h2>
+    <form id="branchForm" class="flex flex-col sm:flex-row gap-3">
+      <input
+        type="text"
+        id="branchName"
+        class="input-field flex-1"
+        placeholder="Branch name"
+        required
+      />
+      <button type="submit" class="btn-solid">Add Branch</button>
+    </form>
+    <p id="branchError" class="text-sm text-red-600 mt-2 hidden"></p>
+  </div>
+</div>
+
+<div class="page-section">
+  <div class="card-section">
+    <h2 class="section-title mb-4">Manage Zones</h2>
+    <form id="zoneForm" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <select id="zoneBranch" class="input-field" required>
+        <option value="">Select Branch</option>
+      </select>
+      <input
+        type="text"
+        id="zoneName"
+        class="input-field"
+        placeholder="Zone name"
+        required
+      />
+      <button type="submit" class="btn-solid">Add Zone</button>
+    </form>
+    <p id="zoneError" class="text-sm text-red-600 mt-2 hidden"></p>
+  </div>
+</div>
+
+<div class="page-section">
+  <div class="card-section">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="section-title">Branches & Zones</h2>
+      <button id="refreshList" class="btn-outline">Refresh</button>
+    </div>
+    <div id="branchesList" class="space-y-4"></div>
+  </div>
+</div>
+
+<div
+  id="successMessage"
+  class="hidden fixed top-4 right-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg shadow-lg"
+>
+  <div class="flex items-center">
+    <i class="fas fa-check-circle mr-2"></i>
+    <span id="successText">Operation completed successfully!</span>
+  </div>
+</div>
+
+<div
+  id="errorMessage"
+  class="hidden fixed top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg shadow-lg"
+>
+  <div class="flex items-center">
+    <i class="fas fa-exclamation-circle mr-2"></i>
+    <span id="errorText">Error performing operation</span>
+  </div>
+</div>
+
+<script>
+  const branchForm = document.getElementById("branchForm");
+  const zoneForm = document.getElementById("zoneForm");
+  const zoneBranch = document.getElementById("zoneBranch");
+  const branchesList = document.getElementById("branchesList");
+  const refreshList = document.getElementById("refreshList");
+  const branchError = document.getElementById("branchError");
+  const zoneError = document.getElementById("zoneError");
+
+  document.addEventListener("DOMContentLoaded", () => {
+    loadBranchesAndZones();
+  });
+
+  refreshList.addEventListener("click", () => {
+    loadBranchesAndZones();
+  });
+
+  async function loadBranchesAndZones() {
+    try {
+      const [branchesRes, zonesRes] = await Promise.all([
+        fetch("/api/branches"),
+        fetch("/api/zones/objects"),
+      ]);
+      const branches = await branchesRes.json();
+      const zones = await zonesRes.json();
+
+      zoneBranch.innerHTML =
+        '<option value="">Select Branch</option>' +
+        branches
+          .map((branch) => `<option value="${branch.id}">${branch.name}</option>`)
+          .join("");
+
+      const zonesByBranch = zones.reduce((acc, zone) => {
+        acc[zone.branch_id] = acc[zone.branch_id] || [];
+        acc[zone.branch_id].push(zone);
+        return acc;
+      }, {});
+
+      branchesList.innerHTML = branches
+        .map((branch) => {
+          const branchZones = zonesByBranch[branch.id] || [];
+          return `
+            <div class="card-soft p-4">
+              <div class="font-semibold text-gray-900">${branch.name}</div>
+              <div class="text-sm text-gray-500 mt-2">
+                ${
+                  branchZones.length
+                    ? branchZones
+                        .map((zone) => `<span class="mr-3">${zone.name}</span>`)
+                        .join("")
+                    : "No zones yet."
+                }
+              </div>
+            </div>
+          `;
+        })
+        .join("");
+    } catch (error) {
+      showError("Failed to load branches and zones.");
+    }
+  }
+
+  branchForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    branchError.classList.add("hidden");
+    const name = document.getElementById("branchName").value.trim();
+    if (!name) {
+      branchError.textContent = "Branch name is required.";
+      branchError.classList.remove("hidden");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/branches", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const result = await response.json();
+      if (result.success) {
+        showSuccess("Branch created successfully!");
+        branchForm.reset();
+        loadBranchesAndZones();
+      } else {
+        showError(result.message || "Failed to create branch.");
+      }
+    } catch (error) {
+      showError("Failed to create branch.");
+    }
+  });
+
+  zoneForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    zoneError.classList.add("hidden");
+    const branchId = zoneBranch.value;
+    const name = document.getElementById("zoneName").value.trim();
+    if (!branchId) {
+      zoneError.textContent = "Select a branch.";
+      zoneError.classList.remove("hidden");
+      return;
+    }
+    if (!name) {
+      zoneError.textContent = "Zone name is required.";
+      zoneError.classList.remove("hidden");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/zones", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, branch_id: parseInt(branchId, 10) }),
+      });
+      const result = await response.json();
+      if (result.success) {
+        showSuccess("Zone created successfully!");
+        zoneForm.reset();
+        loadBranchesAndZones();
+      } else {
+        showError(result.message || "Failed to create zone.");
+      }
+    } catch (error) {
+      showError("Failed to create zone.");
+    }
+  });
+
+  function showSuccess(message) {
+    document.getElementById("successText").textContent = message;
+    document.getElementById("successMessage").classList.remove("hidden");
+    setTimeout(() => {
+      document.getElementById("successMessage").classList.add("hidden");
+    }, 5000);
+  }
+
+  function showError(message) {
+    document.getElementById("errorText").textContent = message;
+    document.getElementById("errorMessage").classList.remove("hidden");
+    setTimeout(() => {
+      document.getElementById("errorMessage").classList.add("hidden");
+    }, 5000);
+  }
+</script>
+{% endblock %}
